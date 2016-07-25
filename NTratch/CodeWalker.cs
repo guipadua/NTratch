@@ -1,19 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using Roslyn.Compilers;
-using Roslyn.Compilers.CSharp;
-using Roslyn.Services;
-using Roslyn.Services.CSharp;
-using System.Diagnostics;
 using System.IO;
-using Roslyn.Compilers.Common;
-using Roslyn.Compilers.CSharp.Metadata.PE;
-using Roslyn.Scripting;
-using Roslyn.Scripting.CSharp;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Text;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using System.Reflection;
 
-namespace ExceptionAnalysis
+namespace NTratch
 {
     class CodeWalker
     {
@@ -21,7 +16,7 @@ namespace ExceptionAnalysis
 
         public CodeWalker()
         {        
-            var mscorlib = MetadataReference.CreateAssemblyReference("mscorlib");
+            var mscorlib = MetadataReference.CreateFromFile(typeof(object).Assembly.Location);
             appReflist.Add(mscorlib);
 
             // Find all the application API dll references files
@@ -30,7 +25,7 @@ namespace ExceptionAnalysis
             foreach (var libFile in appLibFiles)
             {   
                 // Add application API libs by new MetadataFileReference(libFile) 
-                var reference = new MetadataFileReference(libFile);
+                var reference = MetadataReference.CreateFromFile(libFile);
                 appReflist.Add(reference);
             }
         }
@@ -96,7 +91,7 @@ namespace ExceptionAnalysis
                 Console.ReadKey();
             }
 
-            var tree = SyntaxTree.ParseText(content);
+            var tree = CSharpSyntaxTree.ParseText(content);
             var model = GetSemanticInfo(tree);
             var treeAndModelDic = new Dictionary<SyntaxTree, SemanticModel>();
             treeAndModelDic.Add(tree, model);
@@ -111,7 +106,10 @@ namespace ExceptionAnalysis
             //            {
             //                fileContent = "";
             //            }
-            var tree = SyntaxTree.ParseFile(sourceFile);
+
+            var stream = File.OpenRead(sourceFile);
+            var tree = CSharpSyntaxTree.ParseText(SourceText.From(stream), path: sourceFile);
+           
             var model = GetSemanticInfo(tree);
 
             return new Tuple<SyntaxTree, SemanticModel>(tree, model);
@@ -137,8 +135,10 @@ namespace ExceptionAnalysis
 
                     try
                     {
+                        var assemblyPath = Path.GetDirectoryName(typeof(object).Assembly.Location);
+
                         // Add system API libs by MetadataReference.CreateAssemblyReference
-                        reference = MetadataReference.CreateAssemblyReference(libName);
+                        reference = MetadataReference.CreateFromFile(Path.Combine(assemblyPath, libName + ".dll"));
                     }
                     catch (Exception)
                     {
@@ -161,9 +161,9 @@ namespace ExceptionAnalysis
             }
 
             reflist.AddRange(appReflist);
-            var compilationOptions = new CompilationOptions(outputKind: OutputKind.WindowsApplication);
-            var compilation = Compilation.Create(
-                outputName: "ACompilation",
+            var compilationOptions = new CSharpCompilationOptions(outputKind: OutputKind.WindowsApplication);
+            var compilation = CSharpCompilation.Create(
+                assemblyName: "ACompilation",
                 options: compilationOptions,
                 syntaxTrees: new[] { tree },
                 references: reflist);
@@ -197,7 +197,7 @@ namespace ExceptionAnalysis
                     try
                     {
                         // Add system API libs by MetadataReference.CreateAssemblyReference
-                        reference = MetadataReference.CreateAssemblyReference(libName);
+                        reference = MetadataReference.CreateFromFile(libName);
                     }
                     catch (Exception)
                     {
@@ -220,9 +220,9 @@ namespace ExceptionAnalysis
             }
 
             reflist.AddRange(appReflist);
-            var compilationOptions = new CompilationOptions(outputKind: OutputKind.WindowsApplication);
-            var compilation = Compilation.Create(
-                outputName: "AllCompilation",
+            var compilationOptions = new CSharpCompilationOptions(outputKind: OutputKind.WindowsApplication);
+            var compilation = CSharpCompilation.Create(
+                assemblyName: "AllCompilation",
                 options: compilationOptions,
                 syntaxTrees: treelist,
                 references: reflist);
@@ -235,7 +235,7 @@ namespace ExceptionAnalysis
     /// <summary>
     /// Remove the try-catch block of a code snippet
     /// </summary>
-    public class TryStatementRemover : SyntaxRewriter
+    public class TryStatementRemover : CSharpSyntaxRewriter
     {
         public override SyntaxNode VisitTryStatement(TryStatementSyntax node)
         {
@@ -244,7 +244,7 @@ namespace ExceptionAnalysis
         }
     }
 
-    class TryStatementSkipper : SyntaxWalker
+    class TryStatementSkipper : CSharpSyntaxWalker
     {
         public readonly List<InvocationExpressionSyntax> invokedMethods = new List<InvocationExpressionSyntax>();
         public readonly List<ThrowStatementSyntax> invokedThrows = new List<ThrowStatementSyntax>();

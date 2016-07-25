@@ -12,10 +12,13 @@
     <VerifyUploadedFiles>false</VerifyUploadedFiles>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
-    <StartArguments>ByFolder ..\..\..\..\data\PayPalSDK</StartArguments>
+    <StartArguments>ByFolder ..\..\..\data_NTratch\PayPalSDK</StartArguments>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x86'">
     <StartArguments>
     </StartArguments>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
+    <StartArguments>ByFolder ..\..\..\..\..\data_NTratch\PayPalSDK</StartArguments>
   </PropertyGroup>
 </Project>

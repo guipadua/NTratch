@@ -3,13 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using Roslyn.Compilers;
-using Roslyn.Compilers.Common;
-using Roslyn.Compilers.CSharp;
-using Roslyn.Services;
 using System.IO;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 
-namespace ExceptionAnalysis
+namespace NTratch
 {
     static class CodeAnalyzer
     {
@@ -77,7 +76,7 @@ namespace ExceptionAnalysis
             var root = tree.GetRoot();
 
             // Num of LOC
-            stats.CodeStats["NumLOC"] = tree.GetText().LineCount;
+            stats.CodeStats["NumLOC"] = tree.GetText().Lines.Count;
 
             //// Num of call sites
             //var callList = root.DescendantNodes().OfType<InvocationExpressionSyntax>();
@@ -183,7 +182,7 @@ namespace ExceptionAnalysis
             catchBlockInfo.ExceptionType = IOFile.MethodNameExtraction(exceptionType);
             var tryBlock = catchblock.Parent as TryStatementSyntax;
 
-            var fileLinePositionSpan = tree.GetLineSpan(tryBlock.Block.Span, false);
+            var fileLinePositionSpan = tree.GetLineSpan(tryBlock.Block.Span);
             var startLine = fileLinePositionSpan.StartLinePosition.Line + 1;
             var endLine = fileLinePositionSpan.EndLinePosition.Line + 1;
             
@@ -341,7 +340,7 @@ namespace ExceptionAnalysis
             }
             apiCallInfo.CallType = callType;
 
-            var fileLinePositionSpan = tree.GetLineSpan(checkIfBlock.Span, false);
+            var fileLinePositionSpan = tree.GetLineSpan(checkIfBlock.Span);
             var startLine = fileLinePositionSpan.StartLinePosition.Line + 1;
             var endLine = fileLinePositionSpan.EndLinePosition.Line + 1;
             apiCallInfo.OperationFeatures["LOC"] = endLine - startLine + 1;
@@ -447,7 +446,7 @@ namespace ExceptionAnalysis
             var modelBackup = compilation.GetSemanticModel(tree);
             foreach (var method in methodDeclarList)
             {
-                Symbol methodSymbol = null;
+                ISymbol methodSymbol = null;
                 try
                 {
                     methodSymbol = model.GetDeclaredSymbol(method);
@@ -530,7 +529,7 @@ namespace ExceptionAnalysis
             foreach (var statement in statementNodes)
             {
                 if (!statement.DescendantNodes().OfType<StatementSyntax>().Any() 
-                    && statement.Kind != SyntaxKind.Block) //get each leaf statement node
+                    && !statement.IsKind(SyntaxKind.Block)) //get each leaf statement node
                 {
                     statementCount++;
                     //Console.WriteLine(statement.ToString());
@@ -601,7 +600,7 @@ namespace ExceptionAnalysis
             try
             {
                 TypeSyntax type = catchClause.Declaration.Type;
-                TypeSymbol typeSymbol = semanticModel.GetTypeInfo(type).Type;
+                ITypeSymbol typeSymbol = semanticModel.GetTypeInfo(type).Type;
                 if (typeSymbol != null)
                 {
                     return typeSymbol.ToString(); //e.g., "System.IO.IOException
@@ -623,7 +622,7 @@ namespace ExceptionAnalysis
             try
             {
                 TypeSyntax type = catchClause.Declaration.Type;
-                TypeSymbol typeSymbol = semanticModel.GetTypeInfo(type).Type;
+                ITypeSymbol typeSymbol = semanticModel.GetTypeInfo(type).Type;
 
                 //semanticModel.GetDeclaredSymbol(catchClause.Declaration).ContainingType.ToString()
 
@@ -880,7 +879,7 @@ namespace ExceptionAnalysis
             }
 
             var variableList = codeSnippet.DescendantNodes().OfType<IdentifierNameSyntax>()
-                .Where(variable => !variable.IsInTypeOnlyContext());
+                .Where(variable => !SyntaxFacts.IsInTypeOnlyContext(variable));
             foreach (var variable in variableList)
             {
                 var variableName = IOFile.MethodNameExtraction(variable.ToString());
@@ -889,8 +888,8 @@ namespace ExceptionAnalysis
             }
 
             var commentList = codeSnippet.DescendantTrivia()
-                .Where(childNode => childNode.Kind == SyntaxKind.SingleLineCommentTrivia
-                    || childNode.Kind == SyntaxKind.MultiLineCommentTrivia);
+                .Where(childNode => childNode.IsKind(SyntaxKind.SingleLineCommentTrivia)
+                    || childNode.IsKind(SyntaxKind.MultiLineCommentTrivia));
             foreach (var comment in commentList)
             {
                 String updatedComment = IOFile.DeleteSpace(comment.ToString());
@@ -917,7 +916,7 @@ namespace ExceptionAnalysis
                 // Skip method type: e.g., operator method
             }
 
-            Symbol methodSymbol;
+            ISymbol methodSymbol;
             if (method != null)
             {
                 if (method is MethodDeclarationSyntax)
@@ -1017,13 +1016,13 @@ namespace ExceptionAnalysis
             {
                 var expression = statement.DescendantNodesAndSelf().OfType<BinaryExpressionSyntax>().First();
 
-                if (expression.Kind == SyntaxKind.AssignExpression)
+                if (expression.IsKind(SyntaxKind.SimpleAssignmentExpression))
                 {
                     var node = expression.Right;
-                    if (node.Kind == SyntaxKind.MemberAccessExpression 
-                        || node.Kind == SyntaxKind.FalseLiteralExpression
-                        || node.Kind == SyntaxKind.TrueLiteralExpression 
-                        || node.Kind == SyntaxKind.NullLiteralExpression)
+                    if (node.IsKind(SyntaxKind.SimpleMemberAccessExpression) 
+                        || node.IsKind(SyntaxKind.FalseLiteralExpression)
+                        || node.IsKind(SyntaxKind.TrueLiteralExpression)
+                        || node.IsKind(SyntaxKind.NullLiteralExpression))
                     {
                         //Console.WriteLine(node.ToString());
                         return true;
@@ -1075,7 +1074,7 @@ namespace ExceptionAnalysis
                 {
                     try
                     {
-                        var symbol = semanticModel.GetSymbolInfo(recoverStatement).Symbol as LocalSymbol;
+                        var symbol = semanticModel.GetSymbolInfo(recoverStatement).Symbol as ILocalSymbol;
                         String typeName = symbol.Type.ToString();
                         if (typeName.Contains("Exception"))
                         {
@@ -1107,7 +1106,7 @@ namespace ExceptionAnalysis
 
                 recoverStatement = codeSnippet.DescendantNodes().OfType<StatementSyntax>()
                     .First(statement => IsRecoverStatement(statement, semanticModel)
-                    && statement.Kind != SyntaxKind.Block);
+                    && !statement.IsKind(SyntaxKind.Block));
                 return recoverStatement;
             }
             catch
@@ -1122,7 +1121,7 @@ namespace ExceptionAnalysis
             foreach (var statement in statementNodes)
             {
                 if (!statement.DescendantNodes().OfType<StatementSyntax>().Any() 
-                    && statement.Kind != SyntaxKind.Block) //get each leaf statement node
+                    && !statement.IsKind(SyntaxKind.Block)) //get each leaf statement node
                 {
                     //Console.WriteLine(statement.ToString());
                     if (!IsLoggingStatement(statement) && !(IsRecoverStatement(statement, semanticModel))
@@ -1155,8 +1154,8 @@ namespace ExceptionAnalysis
             bool bIsToDo = false;
 
             var commentList = codeSnippet.DescendantTrivia()
-                .Where(childNode => childNode.Kind == SyntaxKind.SingleLineCommentTrivia
-                    || childNode.Kind == SyntaxKind.MultiLineCommentTrivia);
+                .Where(childNode => childNode.IsKind(SyntaxKind.SingleLineCommentTrivia)
+                    || childNode.IsKind(SyntaxKind.MultiLineCommentTrivia));
             foreach (var comment in commentList)
             {
                 String updatedComment = IOFile.DeleteSpace(comment.ToString());
@@ -1190,7 +1189,7 @@ namespace ExceptionAnalysis
                         //Logger.Log("Don't Understand Call {0}", expression.ToString ());
                         return ReturnType;
                     }
-                    var definition = symbolInfo.Symbol/*.OriginalDefinition*/ as MethodSymbol;
+                    var definition = symbolInfo.Symbol/*.OriginalDefinition*/ as IMethodSymbol;
                     ReturnType = definition.ReturnType.ToString();
                 }
                 catch (InvalidCastException)
@@ -1245,7 +1244,7 @@ namespace ExceptionAnalysis
                 //If it's assigned the value of AAA(), instead of BB(AAA()) or AAA().BB()
                 //!!!!!!!!!!!!
                 StatementSyntax statement = GetStatement(call);
-                Symbol SymbolReturnVar = GetReturnVar(call, semanticModel, BoolVar, ref returnType);
+                ISymbol SymbolReturnVar = GetReturnVar(call, semanticModel, BoolVar, ref returnType);
 
                 if (null == SymbolReturnVar)
                 {
@@ -1376,17 +1375,17 @@ namespace ExceptionAnalysis
             if (ReturnType != "bool")
             {
                 SyntaxNode temp = call.Parent;
-                while ((temp.Kind == SyntaxKind.AssignExpression) || temp.Kind == SyntaxKind.ParenthesizedExpression
+                while ((temp.IsKind(SyntaxKind.SimpleAssignmentExpression)) || temp.IsKind(SyntaxKind.ParenthesizedExpression)
                     ///!!!!C.B counts and C.B() does not
-                    || (temp.Kind == SyntaxKind.MemberAccessExpression)
+                    || (temp.IsKind(SyntaxKind.SimpleMemberAccessExpression))
                     ///!!!C.B() is InvocationExperssion(C.B())->MemberAccessExpression(C.B)->Identifier(C)
                     ///So it cannot go through this filter.
                     )
                 {
                     temp = temp.Parent;
                 }
-                if ((temp.Kind == SyntaxKind.NotEqualsExpression) // "AAA() != Empty" 
-                    || (temp.Kind == SyntaxKind.EqualsExpression)) // "AAA() == null" 
+                if ((temp.IsKind(SyntaxKind.NotEqualsExpression)) // "AAA() != Empty" 
+                    || (temp.IsKind(SyntaxKind.EqualsExpression))) // "AAA() == null" 
                 //|| (temp.Kind == SyntaxKind.IfStatement) //"if (Regex.Match(...).Success)"
                 //|| (temp.Kind == SyntaxKind.log))
                 {
@@ -1395,7 +1394,7 @@ namespace ExceptionAnalysis
                     BoolVar = temp;
                     temp = temp.Parent;//Fixed Bug
                 }
-                if (temp.Kind == SyntaxKind.Argument)
+                if (temp.IsKind(SyntaxKind.Argument))
                 {
                     if (IsAssertLogging(temp.Parent.Parent))
                     {
@@ -1470,7 +1469,7 @@ namespace ExceptionAnalysis
         }
 
         private static void ProcessPossibleReturnValueCheckStatement(StatementSyntax CheckScope, StatementSyntax ifStatement,
-            ExpressionSyntax Condition, StatementSyntax statement, SemanticModel semanticModel, Symbol SymbolReturnVar,
+            ExpressionSyntax Condition, StatementSyntax statement, SemanticModel semanticModel, ISymbol SymbolReturnVar,
             String ReturnType, ref StatementSyntax ReturnVarCheckIf, ref bool Checked, ref SyntaxNode BoolVar,
             ref bool FirstCheckFound, ref bool ReturnVarNotChanged)
         {
@@ -1543,7 +1542,7 @@ namespace ExceptionAnalysis
         /// !!!!!!!!!! ToDo
         /// If it's assigned the value of AAA(), instead of BB(AAA()) or AAA().BB()
         /// </summary>
-        private static Symbol GetReturnVar(InvocationExpressionSyntax call, SemanticModel semanticModel, SyntaxNode BoolVar, ref String ReturnType)
+        private static ISymbol GetReturnVar(InvocationExpressionSyntax call, SemanticModel semanticModel, SyntaxNode BoolVar, ref String ReturnType)
         {
             if (BoolVar == null)
             {
@@ -1586,8 +1585,8 @@ namespace ExceptionAnalysis
             //        return null;
             //}
 
-            Symbol SymbolReturnVar = null;
-            if (statement.Kind == SyntaxKind.LocalDeclarationStatement)
+            ISymbol SymbolReturnVar = null;
+            if (statement.IsKind(SyntaxKind.LocalDeclarationStatement))
             {
                 var DeclarationNode = statement as LocalDeclarationStatementSyntax;
                 var Declaration = DeclarationNode.Declaration;
@@ -1607,11 +1606,11 @@ namespace ExceptionAnalysis
             }
             else
             {
-                if (statement.Kind == SyntaxKind.ExpressionStatement)
+                if (statement.IsKind(SyntaxKind.ExpressionStatement))
                 {
                     var expressionNode = statement as ExpressionStatementSyntax;
                     var expression = expressionNode.Expression;
-                    if ((expression.Kind == SyntaxKind.AssignExpression) //AddAssign? No.
+                    if ((expression.IsKind(SyntaxKind.SimpleAssignmentExpression)) //AddAssign? No.
                          && (semanticModel != null))
                     {
                         BinaryExpressionSyntax binary = expression as BinaryExpressionSyntax;

@@ -1,21 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
-using Roslyn.Compilers;
-using Roslyn.Compilers.Common;
-using Roslyn.Compilers.CSharp;
 using System.IO;
-using Roslyn.Services;
+using Microsoft.CodeAnalysis;
 
-namespace ExceptionAnalysis
+namespace NTratch
 {
     class TreeStatistics
     {
         public Dictionary<String, int> CodeStats;
         public List<CatchBlock> CatchBlockList;
-        public List<APICall> APICallList;
+        //public List<APICall> APICallList;
 
         public TreeStatistics()
         {

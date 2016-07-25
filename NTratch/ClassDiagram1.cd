@@ -1,118 +1,118 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <ClassDiagram MajorVersion="1" MinorVersion="1">
-  <Class Name="ExceptionAnalysis.CodeAnalyzer" Collapsed="true">
+  <Class Name="NTratch.CodeAnalyzer" Collapsed="true">
     <Position X="5.25" Y="1.5" Width="1.5" />
     <TypeIdentifier>
       <HashCode>EAAICAAAAQAAQQECAGAEKAIBAAAIBgAAgQECC4BAABQ=</HashCode>
       <FileName>CodeAnalyzer.cs</FileName>
     </TypeIdentifier>
   </Class>
-  <Class Name="ExceptionAnalysis.CodeWalker" Collapsed="true">
+  <Class Name="NTratch.CodeWalker" Collapsed="true">
     <Position X="7" Y="1.5" Width="1.5" />
     <TypeIdentifier>
       <HashCode>AAAAIggAAAAAAAAAAAAQAgAAgAAAACAAAAAAAAAAAAA=</HashCode>
       <FileName>CodeWalker.cs</FileName>
     </TypeIdentifier>
   </Class>
-  <Class Name="ExceptionAnalysis.TryStatementRemover" Collapsed="true">
+  <Class Name="NTratch.TryStatementRemover" Collapsed="true">
     <Position X="8.75" Y="2.5" Width="1.5" />
     <TypeIdentifier>
       <HashCode>AAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAA=</HashCode>
       <FileName>CodeWalker.cs</FileName>
     </TypeIdentifier>
   </Class>
-  <Class Name="ExceptionAnalysis.TryStatementSkipper" Collapsed="true">
+  <Class Name="NTratch.TryStatementSkipper" Collapsed="true">
     <Position X="10.5" Y="2.5" Width="1.5" />
     <TypeIdentifier>
       <HashCode>AAAAAAABAAAAAAAAAAAAAAAAEAAAAAAAAAAACAAAAAA=</HashCode>
       <FileName>CodeWalker.cs</FileName>
     </TypeIdentifier>
   </Class>
-  <Class Name="ExceptionAnalysis.TreeStatistics" Collapsed="true">
+  <Class Name="NTratch.TreeStatistics" Collapsed="true">
     <Position X="0.5" Y="3.5" Width="1.5" />
     <TypeIdentifier>
       <HashCode>AAIAAAAAAAAAAAAAAAAAAAAAACAAABAAAAEAAAAAAAA=</HashCode>
       <FileName>Pattern.cs</FileName>
     </TypeIdentifier>
   </Class>
-  <Class Name="ExceptionAnalysis.CodeStatistics" Collapsed="true">
+  <Class Name="NTratch.CodeStatistics" Collapsed="true">
     <Position X="0.5" Y="4.75" Width="1.5" />
     <TypeIdentifier>
       <HashCode>AAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAEACAAAAA=</HashCode>
       <FileName>Pattern.cs</FileName>
     </TypeIdentifier>
   </Class>
-  <Class Name="ExceptionAnalysis.CommonFeature" Collapsed="true">
+  <Class Name="NTratch.CommonFeature" Collapsed="true">
     <Position X="1.75" Y="0.5" Width="1.5" />
     <TypeIdentifier>
       <HashCode>AAAAAAAAAAAAAAAAgAAAQAAAAAAAAgAAAAAAAAAgAAA=</HashCode>
       <FileName>Pattern.cs</FileName>
     </TypeIdentifier>
   </Class>
-  <Class Name="ExceptionAnalysis.CatchBlock" Collapsed="true">
+  <Class Name="NTratch.CatchBlock" Collapsed="true">
     <Position X="2.75" Y="1.75" Width="1.5" />
     <TypeIdentifier>
       <HashCode>AAAgAAAAAAEAAQAAAAAAEAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
       <FileName>Pattern.cs</FileName>
     </TypeIdentifier>
   </Class>
-  <Class Name="ExceptionAnalysis.CatchList" Collapsed="true">
+  <Class Name="NTratch.CatchList" Collapsed="true">
     <Position X="10.5" Y="0.5" Width="1.5" />
     <TypeIdentifier>
       <HashCode>AAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAIAACQAAAAAA=</HashCode>
       <FileName>Pattern.cs</FileName>
     </TypeIdentifier>
   </Class>
-  <Class Name="ExceptionAnalysis.CatchDic" Collapsed="true">
+  <Class Name="NTratch.CatchDic" Collapsed="true">
     <Position X="8.75" Y="0.5" Width="1.5" />
     <TypeIdentifier>
       <HashCode>AAIAAAAAAAAAAQAAAAEAAAAAAACAAAAAIAACQAAAAAA=</HashCode>
       <FileName>Pattern.cs</FileName>
     </TypeIdentifier>
   </Class>
-  <Class Name="ExceptionAnalysis.Program" Collapsed="true">
+  <Class Name="NTratch.Program" Collapsed="true">
     <Position X="7" Y="2.5" Width="1.5" />
     <TypeIdentifier>
       <HashCode>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAA=</HashCode>
       <FileName>Program.cs</FileName>
     </TypeIdentifier>
   </Class>
-  <Class Name="ExceptionAnalysis.Logger" Collapsed="true">
+  <Class Name="NTratch.Logger" Collapsed="true">
     <Position X="5.25" Y="2.5" Width="1.5" />
     <TypeIdentifier>
       <HashCode>AAAAACAAAAAAAQAAAAAAAAAAAAgAAAIAAAAAAACAAAA=</HashCode>
       <FileName>Utility.cs</FileName>
     </TypeIdentifier>
   </Class>
-  <Class Name="ExceptionAnalysis.Config" Collapsed="true">
+  <Class Name="NTratch.Config" Collapsed="true">
     <Position X="8.75" Y="1.5" Width="1.5" />
     <TypeIdentifier>
       <HashCode>AAAAgAAAAAAACEIAEAAAAAAAAQAAAAAAAAAAAAAAAIA=</HashCode>
       <FileName>Utility.cs</FileName>
     </TypeIdentifier>
   </Class>
-  <Class Name="ExceptionAnalysis.IOFile" Collapsed="true">
+  <Class Name="NTratch.IOFile" Collapsed="true">
     <Position X="10.5" Y="1.5" Width="1.5" />
     <TypeIdentifier>
       <HashCode>AAAAQAAAAAAAAAAAQAAAAKAAAAAAAAAAAAAABAAAAAA=</HashCode>
       <FileName>Utility.cs</FileName>
     </TypeIdentifier>
   </Class>
-  <Class Name="ExceptionAnalysis.APICall" Collapsed="true">
+  <Class Name="NTratch.APICall" Collapsed="true">
     <Position X="0.5" Y="1.75" Width="1.5" />
     <TypeIdentifier>
       <HashCode>AAAgAAAAAAEAAQAAAAAAAAAAAAAIAAAAAAAAAAAAAAA=</HashCode>
       <FileName>Pattern.cs</FileName>
     </TypeIdentifier>
   </Class>
-  <Class Name="ExceptionAnalysis.CallList" Collapsed="true">
+  <Class Name="NTratch.CallList" Collapsed="true">
     <Position X="7" Y="0.5" Width="1.5" />
     <TypeIdentifier>
       <HashCode>AAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAIAACQAAAAAA=</HashCode>
       <FileName>Pattern.cs</FileName>
     </TypeIdentifier>
   </Class>
-  <Class Name="ExceptionAnalysis.CallDic" Collapsed="true">
+  <Class Name="NTratch.CallDic" Collapsed="true">
     <Position X="5.25" Y="0.5" Width="1.5" />
     <TypeIdentifier>
       <HashCode>AAYAAAAAAAAAAQAAAAAAAAAAAACAAAAAIAACQAAAAAA=</HashCode>

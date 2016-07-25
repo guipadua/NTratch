@@ -1,12 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using Roslyn.Compilers;
-using Roslyn.Compilers.CSharp;
 using System.IO;
 
-namespace ExceptionAnalysis
+namespace NTratch
 {
     class Program
     {
