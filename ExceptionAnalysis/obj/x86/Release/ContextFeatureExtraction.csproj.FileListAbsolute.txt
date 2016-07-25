@@ -1,0 +1,4 @@
+C:\Users\gbp\Documents\GitHub\LogAdvisor\src\ContextFeatureExtraction\bin\Release\ContextFeatureExtraction.exe
+C:\Users\gbp\Documents\GitHub\LogAdvisor\src\ContextFeatureExtraction\bin\Release\ContextFeatureExtraction.pdb
+C:\Users\gbp\Documents\GitHub\LogAdvisor\src\ContextFeatureExtraction\obj\x86\Release\ContextFeatureExtraction.exe
+C:\Users\gbp\Documents\GitHub\LogAdvisor\src\ContextFeatureExtraction\obj\x86\Release\ContextFeatureExtraction.pdb

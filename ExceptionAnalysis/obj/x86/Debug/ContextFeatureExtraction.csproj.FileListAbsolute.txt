@@ -1,0 +1,5 @@
+C:\Users\gbp\Documents\GitHub\LogAdvisor\src\ContextFeatureExtraction\bin\Debug\ContextFeatureExtraction.exe
+C:\Users\gbp\Documents\GitHub\LogAdvisor\src\ContextFeatureExtraction\bin\Debug\ContextFeatureExtraction.pdb
+C:\Users\gbp\Documents\GitHub\LogAdvisor\src\ContextFeatureExtraction\obj\x86\Debug\ContextFeatureExtraction.csprojResolveAssemblyReference.cache
+C:\Users\gbp\Documents\GitHub\LogAdvisor\src\ContextFeatureExtraction\obj\x86\Debug\ContextFeatureExtraction.exe
+C:\Users\gbp\Documents\GitHub\LogAdvisor\src\ContextFeatureExtraction\obj\x86\Debug\ContextFeatureExtraction.pdb
