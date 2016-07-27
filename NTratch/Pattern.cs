@@ -8,14 +8,23 @@ namespace NTratch
 {
     class TreeStatistics
     {
-        public Dictionary<String, int> CodeStats;
+        public Dictionary<string, int> CodeStats;
         public List<CatchBlock> CatchBlockList;
         //public List<APICall> APICallList;
 
         public TreeStatistics()
         {
-            CodeStats = new Dictionary<String, int>();
+            CodeStats = new Dictionary<string, int>();
             CodeStats.Add("NumLOC", 0);
+            CodeStats.Add("NumCatchBlock", 0);
+
+            CodeStats.Add("NumLoggedCatchBlock", 0);
+            CodeStats.Add("NumExceptionTypeCatch", 0);
+
+            CodeStats.Add("NumBinded", 0);
+            CodeStats.Add("NumRecoveredBinding", 0);
+            CodeStats.Add("NumMethodsNotBinded", 0);
+
             //CodeStats.Add("NumLoggedLOC", 0);
             //CodeStats.Add("NumCall", 0);
             //CodeStats.Add("NumLogging", 0);
@@ -25,9 +34,6 @@ namespace NTratch
             //CodeStats.Add("NumExceptions", 0);
             //CodeStats.Add("NumLoggedMethod", 0);
             //CodeStats.Add("NumLoggedFile", 0);
-            CodeStats.Add("NumCatchBlock", 0);
-            CodeStats.Add("NumLoggedCatchBlock", 0);
-            CodeStats.Add("NumExceptionType", 0);          
             //CodeStats.Add("NumCallType", 0);
             //CodeStats.Add("NumAPICall", 0);
             //CodeStats.Add("NumLoggedAPICall", 0);
@@ -57,13 +63,13 @@ namespace NTratch
         public CatchDic CatchBlocks;
         //public CallDic APICalls;
 
-        public CodeStatistics(List<Tuple<SyntaxTree, TreeStatistics>> treestats)
+        public CodeStatistics(List<Tuple<SyntaxTree, TreeStatistics>> codeStatsList)
         {
-            TreeStats = treestats;
+            TreeStats = codeStatsList;
             CatchBlocks = new CatchDic();
             //APICalls = new CallDic();
-            CodeStats = new Dictionary<String, int>();
-            foreach (var treetuple in treestats)
+            CodeStats = new Dictionary<string, int>();
+            foreach (var treetuple in codeStatsList)
             {
                 if (treetuple == null) continue;
                 if (treetuple.Item2.CatchBlockList != null)
@@ -79,8 +85,14 @@ namespace NTratch
                     CodeAnalyzer.MergeDic<String>(ref CodeStats, treetuple.Item2.CodeStats);
                 }
             }
-            CodeStats["NumExceptionType"] = CatchBlocks.Count;
+            CodeStats["NumExceptionTypeCatch"] = CatchBlocks.Count;
             CodeStats["NumLoggedCatchBlock"] = CatchBlocks.NumLogged;
+
+            CodeStats["NumBinded"] = CatchBlocks.NumBinded;
+            CodeStats["NumRecoveredBinding"] = CatchBlocks.NumRecoveredBinding;
+            CodeStats["NumMethodsNotBinded"] = CatchBlocks.NumMethodsNotBinded;
+
+
             //CodeStats["NumCallType"] = APICalls.Count;
             //CodeStats["NumAPICall"] = APICalls.NumAPICall;
             //CodeStats["NumLoggedAPICall"] = APICalls.NumLogged;
@@ -99,97 +111,166 @@ namespace NTratch
 
     class CommonFeature
     {
-        public Dictionary<String, int> OperationFeatures;
-        public Dictionary<String, int> TextFeatures; //TextFeatures is only on the API call
-        public Dictionary<String, String> MetaInfo;
+        public Dictionary<string, int> OperationFeatures;
+        //public Dictionary<String, int> TextFeatures; //TextFeatures is only on the API call
+        public string FilePath;
+        public string ExceptionType;
+        public string ParentType;
+        public string ParentMethod;
 
-        public const String Splitter = "\t";
+        public Dictionary<string, string> MetaInfo;
+
+        public const string Splitter = "\t";
 
         public CommonFeature()
         {
-            OperationFeatures = new Dictionary<String, int>();
-            MetaInfo = new Dictionary<String, String>();
+            OperationFeatures = new Dictionary<string, int>();
+            MetaInfo = new Dictionary<string, string>();
 
-            OperationFeatures.Add("Line", 0);
-            OperationFeatures.Add("LOC", 0);
-            
-            OperationFeatures.Add("Logged", 0);
-            OperationFeatures.Add("Abort", 0);
-            OperationFeatures.Add("Thrown", 0);
-            OperationFeatures.Add("SetLogicFlag", 0);
-            OperationFeatures.Add("Return", 0);
-            OperationFeatures.Add("NumMethod", 0);
-            OperationFeatures.Add("NumExceptions", 0);
-            MetaInfo.Add("FilePath", null);
-            MetaInfo.Add("Line", null);
-            MetaInfo.Add("Logged", null);
-            MetaInfo.Add("Abort", null);
-            MetaInfo.Add("Overcatch", null);
-            MetaInfo.Add("Thrown", null);
-            MetaInfo.Add("SetLogicFlag", null);
-            MetaInfo.Add("Return", null);
+            OperationFeatures.Add("TryLine", 0);
+            OperationFeatures.Add("TryLOC", 0);
+            OperationFeatures.Add("CatchLine", 0);
+            OperationFeatures.Add("CatchLOC", 0);
+            OperationFeatures.Add("CatchStart", 0);
+            OperationFeatures.Add("CatchLength", 0);
+            OperationFeatures.Add("MethodLine", 0);
+            OperationFeatures.Add("MethodLOC", 0);
+
+            MetaInfo.Add("FilePath", "-filepath");
+            MetaInfo.Add("ExceptionType", "-exceptiontype");
+            MetaInfo.Add("ParentType", "-parenttype");
+            MetaInfo.Add("ParentMethod", "-parentmethod");
+
+            MetaInfo.Add("TryLine", "-tryline");
         }
 
-    }
-
-    class CatchBlock : CommonFeature
-    {
-        public String ExceptionType;
-        public String FilePath;
-        public static List<String> MetaKeys;
-
-        public CatchBlock() : base() 
+        public string PrintFeatures()
         {
-            //OperationFeatures.Add("Abort", 0); 
-            OperationFeatures.Add("EmptyBlock", 0);
-            OperationFeatures.Add("ToDo", 0);
-            OperationFeatures.Add("LogOnly", 0);
-            OperationFeatures.Add("Overcatch", 0);
-            OperationFeatures.Add("RecoverFlag", 0);
-            OperationFeatures.Add("OtherOperation", 0);
-            MetaInfo.Add("RecoverFlag", null);
-            MetaInfo.Add("OtherOperation", null);
-            MetaInfo.Add("CatchBlock", null);
-            MetaKeys = MetaInfo.Keys.ToList();
-        }
-
-        public String PrintFeatures() 
-        {
-            String features = null;
+            string features = null;
             foreach (var key in OperationFeatures.Keys)
             {
                 features += (key + ":" + OperationFeatures[key] + Splitter);
             }
             features += (ExceptionType + Splitter);
-            foreach (var key in TextFeatures.Keys)
-            {
-                features += (key + ":" + TextFeatures[key] + Splitter);
-            }
+            features += (ParentMethod + Splitter);
+            features += (ParentType + Splitter);
+
             return features;
         }
 
-        public String PrintCSV()
+        public string PrintCSV()
         {
-            String csv = null;
-            csv += (FilePath + ",");
+            string csv = null;
+
             foreach (var key in OperationFeatures.Keys)
             {
-                csv += (key + ":" + OperationFeatures[key] + ",");
+                csv += (OperationFeatures[key] + ",");
             }
-            csv += (ExceptionType);
-            
+            csv += (ExceptionType + ",");
+            csv += (ParentMethod + ",");
+            csv += (ParentType + ",");
+            csv += (FilePath);
+
             return csv;
         }
 
-        public String PrintMetaInfo()
+        public string PrintMetaInfo()
         {
-            String metaInfo = null;
+            string metaInfo = null;
             foreach (var key in MetaInfo.Keys)
             {
                 metaInfo += (IOFile.DeleteSpace(MetaInfo[key]) + Splitter);
             }
             return metaInfo;
         }
+
+    }
+
+    class CatchBlock : CommonFeature
+    {
+        public static List<string> MetaKeys;
+        public static List<string> OpFeaturesKeys;
+
+        public CatchBlock() : base() 
+        {
+            //Binding info and binding based:
+            OperationFeatures.Add("Binded", -9);
+            OperationFeatures.Add("RecoveredBinding", -9);
+            OperationFeatures.Add("Kind", -9);
+
+            //Try info
+            MetaInfo.Add("TryBlock", "-tryblock");
+            OperationFeatures.Add("ParentNodeType", 0);
+            MetaInfo.Add("ParentNodeType", "-parentnodetype");
+
+            //Try Visitor items:
+            OperationFeatures.Add("RecoverFlag", 0);
+            MetaInfo.Add("RecoverFlag", "-recoverflag");
+            OperationFeatures.Add("InnerCatch", 0);
+            OperationFeatures.Add("ParentTryStartLine", 0);
+
+            //Method invocation Visitor on the Catch block:
+            OperationFeatures.Add("Logged", 0);
+            OperationFeatures.Add("MultiLog", 0);
+            OperationFeatures.Add("Abort", 0);
+            OperationFeatures.Add("Default", 0);
+            OperationFeatures.Add("GetCause", 0);
+            OperationFeatures.Add("OtherInvocation", 0);
+
+            MetaInfo.Add("Logged", "-logged");
+            MetaInfo.Add("Abort", "-abort");
+            MetaInfo.Add("Default", "-default");
+            MetaInfo.Add("GetCause", "-getcause");
+            MetaInfo.Add("OtherInvocation", "-otherinvocation");
+
+            //Throw visitor
+            OperationFeatures.Add("NumThrown", 0);
+            MetaInfo.Add("Thrown", "-thrown");
+            OperationFeatures.Add("NumThrowNew", 0);
+            OperationFeatures.Add("NumThrowWrapCurrentException", 0);
+
+            //Other specific visitors:
+            OperationFeatures.Add("Return", 0);
+            OperationFeatures.Add("Continue", 0);
+            MetaInfo.Add("Return", "-return");
+            MetaInfo.Add("Continue", "-continue");
+
+            //Some catch block info
+            OperationFeatures.Add("EmptyBlock", 0);
+            OperationFeatures.Add("CatchException", 0);
+
+            //Finally block items, if existing
+            MetaInfo.Add("FinallyBlock", "-finallyblock");
+            OperationFeatures.Add("FinallyThrowing", 0);
+
+            //Binding based info:
+            MetaInfo.Add("TryMethods", "-trymethods");
+            OperationFeatures.Add("NumMethod", 0);
+            MetaInfo.Add("TryMethodsBinded", "-trymethodsbinded");
+            OperationFeatures.Add("NumMethodsNotBinded", 0);
+            OperationFeatures.Add("NumExceptions", 0);
+            OperationFeatures.Add("NumSpecificHandler", 0);
+            OperationFeatures.Add("NumSubsumptionHandler", 0);
+            OperationFeatures.Add("NumSupersumptionHandler", 0);
+            OperationFeatures.Add("NumOtherHandler", 0);
+
+            //Comments info - not in the Catch Visitor
+            OperationFeatures.Add("ToDo", 0);
+            MetaInfo.Add("CatchBlock", "-catchblock");
+
+
+            /* // Not in Use right now:
+            OperationFeatures.Add("SetLogicFlag", 0);
+            MetaInfo.Add("SetLogicFlag", "-setlogicflag");
+            OperationFeatures.Add("OtherOperation", 0);
+            MetaInfo.Add("OtherOperation", "-otheroperation");
+            */
+
+            MetaKeys = MetaInfo.Keys.ToList();
+            OpFeaturesKeys = OperationFeatures.Keys.ToList();
+        }
+
+        
     }
 
     class CatchList : List<CatchBlock>
@@ -198,11 +279,18 @@ namespace NTratch
         public int NumThrown = 0;
         public int NumLoggedAndThrown = 0;
         public int NumLoggedNotThrown = 0;
+
+        public int NumBinded = 0;
+        public int NumRecoveredBinding = 0;
+        public int NumMethodsNotBinded = 0;
     }
 
-    class CatchDic : Dictionary<String, CatchList>
+    class CatchDic : Dictionary<string, CatchList>
     {
         public int NumCatch = 0;
+        public int NumBinded = 0;
+        public int NumRecoveredBinding = 0;
+        public int NumMethodsNotBinded = 0;
         public int NumLogged = 0;
         public int NumThrown = 0;
         public int NumLoggedAndThrown = 0;
@@ -214,7 +302,7 @@ namespace NTratch
             {
                 if (catchBlock == null) continue;
                 NumCatch++;
-                String exception = catchBlock.ExceptionType;
+                string exception = catchBlock.ExceptionType;
                 if (this.ContainsKey(exception))
                 {
                     this[exception].Add(catchBlock);
@@ -231,7 +319,7 @@ namespace NTratch
                 {
                     this[exception].NumLogged++;
                     NumLogged++;
-                    if (catchBlock.OperationFeatures["Thrown"] == 1)
+                    if (catchBlock.OperationFeatures["NumThrown"] > 1)
                     {
                         this[exception].NumLoggedAndThrown++;
                         NumLoggedAndThrown++;
@@ -242,10 +330,25 @@ namespace NTratch
                         NumLoggedNotThrown++;
                     }
                 }
-                if (catchBlock.OperationFeatures["Thrown"] == 1)
+                if (catchBlock.OperationFeatures["NumThrown"] > 1)
                 {
                     this[exception].NumThrown++;
                     NumThrown++;
+                }
+                if (catchBlock.OperationFeatures["Binded"] == 1)
+                {
+                    this[exception].NumBinded++;
+                    NumBinded++;
+                }
+                if (catchBlock.OperationFeatures["RecoveredBinding"] == 1)
+                {
+                    this[exception].NumRecoveredBinding++;
+                    NumRecoveredBinding++;
+                }
+                if (catchBlock.OperationFeatures["NumMethodsNotBinded"] > 0)
+                {
+                    this[exception].NumMethodsNotBinded++;
+                    NumMethodsNotBinded++;
                 }
             }
         }
@@ -256,12 +359,22 @@ namespace NTratch
             StreamWriter sw = new StreamWriter(IOFile.CompleteFileName("CatchBlock.txt"));
             StreamWriter metaSW = new StreamWriter(IOFile.CompleteFileName("CatchBlock_Meta.txt"));
             StreamWriter csvSW = new StreamWriter(IOFile.CompleteFileName("CatchBlock.csv"));
+
             int catchId = 0;
-            String metaKey = CatchBlock.Splitter;
+
+            string metaKey = CatchBlock.Splitter;
             foreach (var meta in CatchBlock.MetaKeys)
             {
                 metaKey += (meta + CatchBlock.Splitter);
             }
+
+            string OpFeaturesKey = "";
+            foreach (var OpFeature in CatchBlock.OpFeaturesKeys)
+            {
+                OpFeaturesKey += (OpFeature + ",");
+            }
+
+            csvSW.WriteLine("ID," + OpFeaturesKey + "ExceptionType,ParentMethod,ParentType,FilePath");
             metaSW.WriteLine(metaKey);
             metaSW.WriteLine("--------------------------------------------------------");
             metaSW.WriteLine("NumExceptionType: {0}, NumCatchBlock: {1}, NumLogged: {2}, "
@@ -274,7 +387,7 @@ namespace NTratch
                     NumLoggedNotThrown);
             metaSW.WriteLine();
 
-            foreach (String exception in this.Keys)
+            foreach (string exception in this.Keys)
             {
                 metaSW.WriteLine("--------------------------------------------------------");
                 CatchList catchList = this[exception];
@@ -312,7 +425,7 @@ namespace NTratch
                     "NumLoggedAndThrown",
                     "NumLoggedNotThrown");
 
-            foreach (String exception in this.Keys)
+            foreach (string exception in this.Keys)
             {
                 var catchList = this[exception];
                 metaSW.WriteLine("{0}\t{1}\t{2}\t{3}\t{4}\t{5}",
@@ -331,180 +444,5 @@ namespace NTratch
         }
     }
 
-    class APICall : CommonFeature
-    {
-        public String CallType;
-        public static List<String> MetaKeys;
-
-        public APICall() : base()
-        {
-            OperationFeatures.Add("EmptyBlock", 0);
-            OperationFeatures.Add("RecoverFlag", 0);
-            OperationFeatures.Add("OtherOperation", 0);
-            MetaInfo.Add("RecoverFlag", null);
-            MetaInfo.Add("OtherOperation", null);
-            MetaInfo.Add("CheckIfBlock", null);
-            MetaKeys = MetaInfo.Keys.ToList();
-        }
-
-        public String PrintFeatures()
-        {
-            String features = null;
-            foreach (var key in OperationFeatures.Keys)
-            {
-                features += (key + ":" + OperationFeatures[key] + Splitter);
-            }
-            features += (CallType + Splitter);
-            foreach (var key in TextFeatures.Keys)
-            {
-                features += (key + ":" + TextFeatures[key] + Splitter);
-            }
-            return features;
-        }
-
-        public String PrintMetaInfo()
-        {
-            String metaInfo = null;
-            foreach (var key in MetaInfo.Keys)
-            {
-                metaInfo += (IOFile.DeleteSpace(MetaInfo[key]) + Splitter);
-            }
-            return metaInfo;
-        }
-    }
-
-    class CallList : List<APICall>
-    {
-        public int NumLogged = 0;
-        public int NumThrown = 0;
-        public int NumLoggedAndThrown = 0;
-        public int NumLoggedNotThrown = 0;
-    }
-
-    class CallDic : Dictionary<String, CallList>
-    {
-        public int NumAPICall = 0;
-        public int NumLogged = 0;
-        public int NumThrown = 0;
-        public int NumLoggedAndThrown = 0;
-        public int NumLoggedNotThrown = 0;
-
-        public void Add(List<APICall> callList)
-        {
-            foreach (var apiCall in callList)
-            {
-                if (apiCall == null) continue;
-                NumAPICall++;
-                String calltype = apiCall.CallType;
-                if (this.ContainsKey(calltype))
-                {
-                    this[calltype].Add(apiCall);
-                }
-                else
-                {
-                    //Create a new list for this type.
-                    this.Add(calltype, new CallList());
-                    this[calltype].Add(apiCall);
-                }
-
-                //Update Statistics
-                if (apiCall.OperationFeatures["Logged"] == 1)
-                {
-                    this[calltype].NumLogged++;
-                    NumLogged++;
-                    if (apiCall.OperationFeatures["Thrown"] == 1)
-                    {
-                        this[calltype].NumLoggedAndThrown++;
-                        NumLoggedAndThrown++;
-                    }
-                    else
-                    {
-                        this[calltype].NumLoggedNotThrown++;
-                        NumLoggedNotThrown++;
-                    }
-                }
-                if (apiCall.OperationFeatures["Thrown"] == 1)
-                {
-                    this[calltype].NumThrown++;
-                    NumThrown++;
-                }
-            }
-        }
-
-        public void PrintToFile()
-        {
-            Logger.Log("Writing APICall features into file...");
-            StreamWriter sw = new StreamWriter(IOFile.CompleteFileName("APICall.txt"));
-            StreamWriter metaSW = new StreamWriter(IOFile.CompleteFileName("APICall_Meta.txt"));
-            int callId = 0;
-            String metaKey = CatchBlock.Splitter;
-            foreach (var meta in CatchBlock.MetaKeys)
-            {
-                metaKey += (meta + CatchBlock.Splitter);
-            }
-            metaSW.WriteLine(metaKey);
-            metaSW.WriteLine("--------------------------------------------------------");
-            metaSW.WriteLine("NumCallType: {0}, NumAPICall: {1}, NumLogged: {2}, "
-                    + "NumThrown: {3}, NumLoggedAndThrown: {4}, NumLoggedNotThrown: {5}.",
-                    this.Count,
-                    NumAPICall,
-                    NumLogged,
-                    NumThrown,
-                    NumLoggedAndThrown,
-                    NumLoggedNotThrown);
-            metaSW.WriteLine();
-
-            foreach (String calltype in this.Keys)
-            {
-                metaSW.WriteLine("--------------------------------------------------------");
-                CallList callList = this[calltype];
-                metaSW.WriteLine("Call Type [{0}]: NumAPICall: {1}, NumLogged: {2}, "
-                        + "NumThrown: {3}, NumLoggedAndThrown: {4}, NumLoggedNotThrown: {5}.",
-                        calltype,
-                        callList.Count,
-                        callList.NumLogged,
-                        callList.NumThrown,
-                        callList.NumLoggedAndThrown,
-                        callList.NumLoggedNotThrown
-                        );
-                foreach (var apicall in callList)
-                {
-                    callId++;
-                    sw.WriteLine("ID:" + callId + APICall.Splitter + apicall.PrintFeatures());
-                    metaSW.WriteLine("ID:" + callId + APICall.Splitter + apicall.PrintMetaInfo());
-                }
-                metaSW.WriteLine();
-                metaSW.WriteLine();
-                sw.Flush();
-                metaSW.Flush();
-            }
-
-            //Print summary
-            metaSW.WriteLine("------------------------ Summary -------------------------");
-            metaSW.WriteLine("{0}\t{1}\t{2}\t{3}\t{4}\t{5}",
-                    "Call Type",
-                    "NumAPICall",
-                    "NumLogged",
-                    "NumThrown",
-                    "NumLoggedAndThrown",
-                    "NumLoggedNotThrown");
-
-            foreach (String exception in this.Keys)
-            {
-                var catchList = this[exception];
-                metaSW.WriteLine("{0}\t{1}\t{2}\t{3}\t{4}\t{5}",
-                        exception,
-                        catchList.Count,
-                        catchList.NumLogged,
-                        catchList.NumThrown,
-                        catchList.NumLoggedAndThrown,
-                        catchList.NumLoggedNotThrown
-                        );
-            }
-            sw.Close();
-            metaSW.Close();
-            Logger.Log("Writing done.");
-        }
-    }
 }
 

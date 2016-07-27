@@ -21,7 +21,7 @@ namespace NTratch
             Log("-------------------------------------------------------");
             Log("New Task.");
         }
-        public static void Log(String message)
+        public static void Log(string message)
         {
             Console.WriteLine("[{0}] {1}", DateTime.Now.ToString(), message);
             LogWriter.WriteLine("[{0}] {1}", DateTime.Now.ToString(), message);
@@ -50,40 +50,48 @@ namespace NTratch
     /// </summary>
     static class Config
     {
-        static public String[] LogMethods { get; private set; } // "WriteError"
-        static public String[] NotLogMethods { get; private set; } // "TraceUtil.If"
+        static public string[] LogMethods { get; private set; } // "WriteError"
+        static public string[] NotLogMethods { get; private set; } // "TraceUtil.If"
         static public int LogLevelArgPos { get; private set; } // ="2"
-        static public int AssertConditionIndex { get; private set; }
-        static public bool Orthogonal;
+        static public string[] AbortMethods { get; private set; } 
+        static public string[] DefaultMethods { get; private set; } 
 
-        static public void Load(String FileName)
+        static public void Load(string FileName)
         {
-            StreamReader Input = new StreamReader(FileName);
+            StreamReader Input = null;
 
             try
+            {
+                Input = new StreamReader(FileName);
+            }
+            catch (FileNotFoundException)
+            {
+                MemoryStream stream = new MemoryStream();
+                StreamWriter writer = new StreamWriter(stream);
+                
+                writer.WriteLine("LoggingService.,host.Writer.Write,WriteComment,Trace.Write,TraceUtil.Write,File.WriteAllText,DebugLogException,LogError,Debug.Assert,Debug.Write,LogWarningFromException,LogSyntaxError,WriteLine,stackTrace.Append%	 	LogMethods");
+                writer.WriteLine("WriteLineIf,TraceUtil.If,html.WriteLine,gen.WriteLine,output.WriteLine,o.WriteLine% NotLogMethods");
+                writer.WriteLine("0%					LogLevelIndex");
+                writer.WriteLine("abort,exit%	 	AbortMethods");
+                writer.WriteLine("printStackTrace%	 	DefaultMethods");
+
+                writer.Flush();
+                stream.Position = 0;
+
+                Input = new StreamReader(stream);
+            }
+            finally
             {
                 LogMethods = GetOneParameter(Input).Split(',');
                 NotLogMethods = GetOneParameter(Input).Split(',');
                 LogLevelArgPos = Convert.ToInt32(GetOneParameter(Input));
-                String temp = GetOneParameter(Input);
-                if (temp == "O") Orthogonal = true;
-                else if (temp == "N") Orthogonal = false;
-                else throw new IOException();
-                AssertConditionIndex = Convert.ToInt32(GetOneParameter(Input));
-            }
-            catch
-            {
-                Logger.Log("Illegal Configure File Format.");
-            }
-            finally
-            {
                 Input.Close();
             }
         }
 
-        static private String GetOneParameter(StreamReader Input)
+        static private string GetOneParameter(StreamReader Input)
         {
-            String Parameter = Input.ReadLine();
+            string Parameter = Input.ReadLine();
             Parameter = Parameter.Split('%')[0];
             return Parameter;
         }
@@ -94,29 +102,29 @@ namespace NTratch
     /// </summary>
     static class IOFile
     {
-        public static String FolderPath;
+        public static string FolderPath;
        
-        public static String CompleteFileName(String tail)
+        public static string CompleteFileName(string tail)
         {
             return (FolderPath + "\\" + FolderPath.Split('\\').Last() + "_" + tail);
         }
 
-        static public String DeleteSpace(String str)
+        static public string DeleteSpace(string str)
         {
             if (str == null || str == "") return str;
 
-            String updatedStr = str.Replace("\n", "").Replace("\r", "").Replace("\t", "")
+            string updatedStr = str.Replace("\n", "").Replace("\r", "").Replace("\t", "")
             .Replace("    ", " ").Replace("    ", " ").Replace("   ", " ")
             .Replace("  ", " ");
 
             return updatedStr;
         }
 
-        static public String MethodNameExtraction(String str)
+        static public string MethodNameExtraction(string str)
         {
             try
             {
-                String methodName = str;
+                string methodName = str;
                 try
                 {                  
                     methodName = Regex.Replace(methodName, "<.*>", "");
@@ -138,11 +146,11 @@ namespace NTratch
             }
         }
 
-        static public String ShortMethodNameExtraction(String str)
+        static public string ShortMethodNameExtraction(string str)
         {
             try
             {
-                String methodName = null;
+                string methodName = null;
                 MatchCollection allMatches = Regex.Matches(str, "\\.[a-zA-Z0-9\\s]+\\(");
                 if (allMatches.Count > 1)
                 {

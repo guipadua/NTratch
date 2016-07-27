@@ -13,8 +13,8 @@ namespace NTratch
     static class CodeAnalyzer
     {
         public static TryStatementRemover tryblockremover = new TryStatementRemover();
-        public static Dictionary<String, MethodDeclarationSyntax> AllMethodDeclarations =
-            new Dictionary<String, MethodDeclarationSyntax>();
+        public static Dictionary<string, MethodDeclarationSyntax> AllMethodDeclarations =
+            new Dictionary<string, MethodDeclarationSyntax>();
 
         /// <summary>
         /// Analyze the code by all trees and semantic models
@@ -55,7 +55,7 @@ namespace NTratch
                 {
                     sb.Append(stat.Item1.GetText());
                 }
-                String txtFilePath = IOFile.CompleteFileName("AllSource.txt");
+                string txtFilePath = IOFile.CompleteFileName("AllSource.txt");
                 using (StreamWriter sw = new StreamWriter(txtFilePath))
                 {
                     sw.Write(sb.ToString());
@@ -178,8 +178,34 @@ namespace NTratch
             CatchBlock catchBlockInfo = new CatchBlock();
             var tree = catchblock.SyntaxTree;
             var model = treeAndModelDic[tree];
-            var exceptionType = GetExceptionType(catchblock, model);
-            catchBlockInfo.ExceptionType = IOFile.MethodNameExtraction(exceptionType);
+
+            if(catchblock.Declaration != null)
+            {
+                TypeSyntax exceptionTypeSyntax = catchblock.Declaration.Type;
+                INamedTypeSymbol exceptionNamedTypeSymbol = model.GetTypeInfo(exceptionTypeSyntax).ConvertedType as INamedTypeSymbol;
+
+                if (exceptionNamedTypeSymbol != null)
+                {
+                    catchBlockInfo.ExceptionType = exceptionNamedTypeSymbol.ToString();
+                    
+                    //Binding info:
+                    if (exceptionNamedTypeSymbol.BaseType != null)
+                    {
+                        catchBlockInfo.OperationFeatures["Binded"] = 1;
+                        catchBlockInfo.OperationFeatures["RecoveredBinding"] = model.IsSpeculativeSemanticModel ? 1 : 0;
+                        catchBlockInfo.OperationFeatures["Kind"] = FindKind(exceptionNamedTypeSymbol, compilation);
+                    }
+                    else
+                        catchBlockInfo.OperationFeatures["Binded"] = 0;
+                } else
+                    catchBlockInfo.ExceptionType = "!NO_NAMED_TYPE!";
+            } else
+                catchBlockInfo.ExceptionType = "!NO_EXCEPTION_DECLARED!";
+            
+            //Basic info:
+            catchBlockInfo.MetaInfo["ExceptionType"] = catchBlockInfo.ExceptionType;
+            
+
             var tryBlock = catchblock.Parent as TryStatementSyntax;
 
             var fileLinePositionSpan = tree.GetLineSpan(tryBlock.Block.Span);
@@ -299,146 +325,23 @@ namespace NTratch
 
             catchBlockInfo.OperationFeatures["NumMethod"] = methodAndExceptionList[0].Count;
             catchBlockInfo.OperationFeatures["NumExceptions"] = methodAndExceptionList[1].Count;
-            catchBlockInfo.TextFeatures = methodAndExceptionList[0];
-            if (containingMethod != null)
-            {
-                MergeDic<String>(ref catchBlockInfo.TextFeatures,
-                    new Dictionary<String, int>() { { containingMethod, 1 } });
-            }
-            MergeDic<String>(ref catchBlockInfo.TextFeatures,
-                    new Dictionary<String, int>() { { "##spliter##", 0 } }); // to seperate methods and variables
-            MergeDic<String>(ref catchBlockInfo.TextFeatures, variableAndComments);
+            //catchBlockInfo.TextFeatures = methodAndExceptionList[0];
+            //if (containingMethod != null)
+            //{
+            //    MergeDic<string>(ref catchBlockInfo.TextFeatures,
+            //        new Dictionary<string, int>() { { containingMethod, 1 } });
+            //}
+            //MergeDic<string>(ref catchBlockInfo.TextFeatures,
+            //        new Dictionary<string, int>() { { "##spliter##", 0 } }); // to seperate methods and variables
+            //MergeDic<string>(ref catchBlockInfo.TextFeatures, variableAndComments);
             
             return catchBlockInfo;
         }
 
-        public static APICall AnalyzeAnAPICall(InvocationExpressionSyntax call,
-                Dictionary<SyntaxTree, SemanticModel> treeAndModelDic, Compilation compilation)
-        {
-            var tree = call.SyntaxTree;
-            var model = treeAndModelDic[tree];
-            var returnType = GetReturnValueType(call, model);
-            var apiCallName = GetAPICallName(call, model);
-
-            StatementSyntax checkIfBlock;
-            try
-            {
-                checkIfBlock = GetIfStatementForReturnValueCheck(call, model, returnType);
-            }
-            catch (Exception)
-            {
-                checkIfBlock = null;
-            }
-
-            if (checkIfBlock == null) return null;
-            APICall apiCallInfo = new APICall();
-
-            String callType = IOFile.ShortMethodNameExtraction(apiCallName);
-            if (callType == null)
-            {
-                callType = "Error";
-            }
-            apiCallInfo.CallType = callType;
-
-            var fileLinePositionSpan = tree.GetLineSpan(checkIfBlock.Span);
-            var startLine = fileLinePositionSpan.StartLinePosition.Line + 1;
-            var endLine = fileLinePositionSpan.EndLinePosition.Line + 1;
-            apiCallInfo.OperationFeatures["LOC"] = endLine - startLine + 1;
-            apiCallInfo.MetaInfo["Line"] = startLine.ToString();
-            apiCallInfo.MetaInfo["FilePath"] = tree.FilePath;
-
-            bool hasTryStatement = checkIfBlock.DescendantNodesAndSelf()
-                        .OfType<TryStatementSyntax>().Any();
-            SyntaxNode updatedcheckIfBlock = checkIfBlock;
-            if (hasTryStatement == true)
-            {
-                try
-                {
-                    // remove try-catch-finally block inside
-                    updatedcheckIfBlock = tryblockremover.Visit(checkIfBlock);
-                }
-                catch (System.ArgumentNullException e)
-                {
-                    // ignore the ArgumentNullException 
-                }
-            }
-
-            apiCallInfo.MetaInfo["CheckIfBlock"] = checkIfBlock.ToString();
-
-            var loggingStatement = FindLoggingIn(updatedcheckIfBlock);
-            if (loggingStatement != null)
-            {
-                apiCallInfo.MetaInfo["Logged"] = loggingStatement.ToString();
-                apiCallInfo.OperationFeatures["Logged"] = 1;
-            }
-
-            var throwStatement = FindThrowIn(updatedcheckIfBlock);
-            if (throwStatement != null)
-            {
-                apiCallInfo.MetaInfo["Thrown"] = throwStatement.ToString();
-                apiCallInfo.OperationFeatures["Thrown"] = 1;
-            }
-
-            var setLogicFlag = FindSetLogicFlagIn(updatedcheckIfBlock);
-            if (setLogicFlag != null)
-            {
-                apiCallInfo.MetaInfo["SetLogicFlag"] = setLogicFlag.ToString();
-                apiCallInfo.OperationFeatures["SetLogicFlag"] = 1;
-            }
-
-            var returnStatement = FindReturnIn(updatedcheckIfBlock);
-            if (returnStatement != null)
-            {
-                apiCallInfo.MetaInfo["Return"] = returnStatement.ToString();
-                apiCallInfo.OperationFeatures["Return"] = 1;
-            }
-
-            var recoverStatement = FindRecoverStatement(updatedcheckIfBlock, model);
-            if (recoverStatement != null)
-            {
-                apiCallInfo.MetaInfo["RecoverFlag"] = recoverStatement.ToString();
-                apiCallInfo.OperationFeatures["RecoverFlag"] = 1;
-            }
-
-            var otherOperation = HasOtherOperation(updatedcheckIfBlock, model);
-            if (otherOperation != null)
-            {
-                apiCallInfo.MetaInfo["OtherOperation"] = otherOperation.ToString();
-                apiCallInfo.OperationFeatures["OtherOperation"] = 1;
-            }
-
-            if (IsEmptyBlock(updatedcheckIfBlock))
-            {
-                apiCallInfo.OperationFeatures["EmptyBlock"] = 1;
-            }
-
-            var containingMethod = GetContainingMethodName(checkIfBlock, model);
-            var methodNameList = GetAllInvokedMethodNamesByBFS(checkIfBlock, treeAndModelDic, compilation);
-            apiCallInfo.OperationFeatures["NumMethod"] = methodNameList.Count;
-            apiCallInfo.TextFeatures = methodNameList;
-            if (containingMethod != null)
-            {
-                MergeDic<String>(ref apiCallInfo.TextFeatures,
-                    new Dictionary<String, int>() { { containingMethod, 1 } });
-            }
-            if (IOFile.MethodNameExtraction(apiCallName) != null)
-            {
-                MergeDic<String>(ref apiCallInfo.TextFeatures,
-                    new Dictionary<String, int>() { { IOFile.MethodNameExtraction(apiCallName), 1 } });
-            }
-            else if (IOFile.ShortMethodNameExtraction(apiCallName) != null)
-            {
-                MergeDic<String>(ref apiCallInfo.TextFeatures,
-                    new Dictionary<String, int>() { { IOFile.ShortMethodNameExtraction(apiCallName), 1 } });
-            }
-
-            return apiCallInfo;
-        }
-
-        public static Dictionary<String, MethodDeclarationSyntax> GetAllMethodDeclarations(SyntaxTree tree,
+        public static Dictionary<string, MethodDeclarationSyntax> GetAllMethodDeclarations(SyntaxTree tree,
             Dictionary<SyntaxTree, SemanticModel> treeAndModelDic, Compilation compilation)
         {
-            var allMethodDeclarations = new Dictionary<String, MethodDeclarationSyntax>();
+            var allMethodDeclarations = new Dictionary<string, MethodDeclarationSyntax>();
 
             var root = tree.GetRoot();
             var methodDeclarList = root.DescendantNodes().OfType<MethodDeclarationSyntax>();
@@ -476,10 +379,10 @@ namespace NTratch
         /// </summary>
         static public bool IsLoggingStatement(SyntaxNode statement)
         {
-            String logging = IOFile.MethodNameExtraction(statement.ToString());
+            string logging = IOFile.MethodNameExtraction(statement.ToString());
             if (logging == null) return false;
 
-            foreach (String notlogmethod in Config.NotLogMethods)
+            foreach (string notlogmethod in Config.NotLogMethods)
             {
                 if (notlogmethod == "") break;
                 if (logging.IndexOf(notlogmethod) > -1)
@@ -487,7 +390,7 @@ namespace NTratch
                     return false;
                 }
             }
-            foreach (String logmethod in Config.LogMethods)
+            foreach (string logmethod in Config.LogMethods)
             {
                 if (logging.IndexOf(logmethod) > -1)
                 {
@@ -564,12 +467,12 @@ namespace NTratch
         /// </summary>
         static public bool IsAbortStatement(SyntaxNode statement)
         {
-            String aborting = IOFile.MethodNameExtraction(statement.ToString());
+            string aborting = IOFile.MethodNameExtraction(statement.ToString());
             if (aborting == null) return false;
 
             string[] abortMethods = { "Exit", "Abort" };
 
-            foreach (String abortMethod in abortMethods)
+            foreach (string abortMethod in abortMethods)
             {
                 if (aborting.IndexOf(abortMethod) > -1)
                 {
@@ -594,58 +497,11 @@ namespace NTratch
                 return null;
             }
         }
-
-        public static String GetExceptionType(CatchClauseSyntax catchClause, SemanticModel semanticModel)
-        {
-            try
-            {
-                TypeSyntax type = catchClause.Declaration.Type;
-                ITypeSymbol typeSymbol = semanticModel.GetTypeInfo(type).Type;
-                if (typeSymbol != null)
-                {
-                    return typeSymbol.ToString(); //e.g., "System.IO.IOException
-                }
-                else
-                {
-                    return type.ToString();
-                }
-            }
-            catch
-            {
-                // the default exception type
-                return "System.UndeclaredException.Type";
-            }
-        }
-        
-        public static Type GetExceptionTypeType(CatchClauseSyntax catchClause, SemanticModel semanticModel)
-        {
-            try
-            {
-                TypeSyntax type = catchClause.Declaration.Type;
-                ITypeSymbol typeSymbol = semanticModel.GetTypeInfo(type).Type;
-
-                //semanticModel.GetDeclaredSymbol(catchClause.Declaration).ContainingType.ToString()
-
                 
-                if (typeSymbol != null)
-                {
-                    return typeSymbol.GetType(); //e.g., "System.IO.IOException
-                }
-                else
-                {
-                    return type.GetType();
-                }
-            }
-            catch
-            {
-                // the default exception type
-                return Type.GetType("System.UndeclaredException.Type");
-            }
-        }
-        public static Dictionary<String, int> GetAllInvokedMethodNamesByBFS(SyntaxNode inputSnippet,
+        public static Dictionary<string, int> GetAllInvokedMethodNamesByBFS(SyntaxNode inputSnippet,
             Dictionary<SyntaxTree, SemanticModel> treeAndModelDic, Compilation compilation)
         {
-            Dictionary<String, int> allInovkedMethods = new Dictionary<String, int>();
+            Dictionary<string, int> allInovkedMethods = new Dictionary<string, int>();
             // to save a code snippet and its backward level
             Queue<Tuple<SyntaxNode, int>> codeSnippetQueue = new Queue<Tuple<SyntaxNode, int>>();
 
@@ -661,7 +517,7 @@ namespace NTratch
 
                 foreach (var invocation in methodList)
                 {
-                    String methodName = IOFile.MethodNameExtraction(invocation.ToString());
+                    string methodName = IOFile.MethodNameExtraction(invocation.ToString());
                     try
                     {
                         // use a single semantic model
@@ -700,7 +556,7 @@ namespace NTratch
                     catch (Exception e)
                     {
                         MergeDic<String>(ref allInovkedMethods,
-                                new Dictionary<String, int>() { { methodName, 1 } });
+                                new Dictionary<string, int>() { { methodName, 1 } });
                         Logger.Log(tree.FilePath);
                         Logger.Log(snippet.ToFullString());
                         Logger.Log(invocation.ToFullString());
@@ -713,13 +569,13 @@ namespace NTratch
             return allInovkedMethods;
         }
         
-        public static Dictionary<String, int> [] GetAllInvokedMethodNamesAndExceptionsByBFS(SyntaxNode inputSnippet,
+        public static Dictionary<string, int> [] GetAllInvokedMethodNamesAndExceptionsByBFS(SyntaxNode inputSnippet,
             Dictionary<SyntaxTree, SemanticModel> treeAndModelDic, Compilation compilation)
         {
-            Dictionary<String, int> allInovkedMethods = new Dictionary<String, int>();
-            Dictionary<String, int> allInovkedExcetions = new Dictionary<String, int>();
+            Dictionary<string, int> allInovkedMethods = new Dictionary<string, int>();
+            Dictionary<string, int> allInovkedExcetions = new Dictionary<string, int>();
 
-            Dictionary<String, int>[] allMethodsAndExceptions = new Dictionary<String, int>[2];
+            Dictionary<string, int>[] allMethodsAndExceptions = new Dictionary<string, int>[2];
             // to save a code snippet and its backward level
             Queue<Tuple<SyntaxNode, int>> codeSnippetQueue = new Queue<Tuple<SyntaxNode, int>>();
 
@@ -737,7 +593,7 @@ namespace NTratch
 
                 foreach (var invocation in methodList)
                 {
-                    String methodName = IOFile.MethodNameExtraction(invocation.ToString());
+                    string methodName = IOFile.MethodNameExtraction(invocation.ToString());
                     try
                     {
                         // use a single semantic model
@@ -776,7 +632,7 @@ namespace NTratch
                     catch (Exception e)
                     {
                         MergeDic<String>(ref allInovkedMethods,
-                                new Dictionary<String, int>() { { methodName, 1 } });
+                                new Dictionary<string, int>() { { methodName, 1 } });
                         Logger.Log(tree.FilePath);
                         Logger.Log(snippet.ToFullString());
                         Logger.Log(invocation.ToFullString());
@@ -786,7 +642,7 @@ namespace NTratch
                 }
                 foreach (var throwStatement in throwList)
                 {
-                    String exceptionName = "";
+                    string exceptionName = "";
                     
                     var model = treeAndModelDic[tree]; 
                     var symbolInfo = model.GetSymbolInfo(throwStatement.Expression);
@@ -867,9 +723,9 @@ namespace NTratch
             return updatedMethodList;
         }
 
-        public static Dictionary<String, int> GetVariablesAndComments(SyntaxNode codeSnippet)
+        public static Dictionary<string, int> GetVariablesAndComments(SyntaxNode codeSnippet)
         {
-            Dictionary<String, int> variableAndComments = new Dictionary<String, int>();
+            Dictionary<string, int> variableAndComments = new Dictionary<string, int>();
 
             bool hasTryStatement = codeSnippet.DescendantNodes()
                 .OfType<TryStatementSyntax>().Any();
@@ -884,7 +740,7 @@ namespace NTratch
             {
                 var variableName = IOFile.MethodNameExtraction(variable.ToString());
                 MergeDic<String>(ref variableAndComments,
-                    new Dictionary<String, int>() { { variableName, 1 } });
+                    new Dictionary<string, int>() { { variableName, 1 } });
             }
 
             var commentList = codeSnippet.DescendantTrivia()
@@ -892,21 +748,21 @@ namespace NTratch
                     || childNode.IsKind(SyntaxKind.MultiLineCommentTrivia));
             foreach (var comment in commentList)
             {
-                String updatedComment = IOFile.DeleteSpace(comment.ToString());
+                string updatedComment = IOFile.DeleteSpace(comment.ToString());
                 updatedComment = Regex.Replace(updatedComment, "<.*>", "");
                 updatedComment = Regex.Replace(updatedComment, "{.*}", "");
                 updatedComment = Regex.Replace(updatedComment, "\\(.*\\)", "");
                 MergeDic<String>(ref variableAndComments,
-                    new Dictionary<String, int>() { { updatedComment, 1 } });
+                    new Dictionary<string, int>() { { updatedComment, 1 } });
             }
             return variableAndComments;
         }
 
-        public static String GetContainingMethodName(SyntaxNode codeSnippet, SemanticModel model)
+        public static string GetContainingMethodName(SyntaxNode codeSnippet, SemanticModel model)
         {
             // Method name
             SyntaxNode method = null;
-            String methodName = null;
+            string methodName = null;
             try
             {
                 method = codeSnippet.Ancestors().OfType<BaseMethodDeclarationSyntax>().First();
@@ -1075,7 +931,7 @@ namespace NTratch
                     try
                     {
                         var symbol = semanticModel.GetSymbolInfo(recoverStatement).Symbol as ILocalSymbol;
-                        String typeName = symbol.Type.ToString();
+                        string typeName = symbol.Type.ToString();
                         if (typeName.Contains("Exception"))
                         {
                             // To check
@@ -1158,7 +1014,7 @@ namespace NTratch
                     || childNode.IsKind(SyntaxKind.MultiLineCommentTrivia));
             foreach (var comment in commentList)
             {
-                String updatedComment = IOFile.DeleteSpace(comment.ToString());
+                string updatedComment = IOFile.DeleteSpace(comment.ToString());
                 updatedComment = Regex.Replace(updatedComment, "<.*>", "");
                 updatedComment = Regex.Replace(updatedComment, "{.*}", "");
                 updatedComment = Regex.Replace(updatedComment, "\\(.*\\)", "");
@@ -1171,468 +1027,23 @@ namespace NTratch
             return bIsToDo;
         }
 
-        public static String GetReturnValueType(InvocationExpressionSyntax node, SemanticModel semanticModel)
+        public static int FindKind(INamedTypeSymbol exceptionType, Compilation compilation)
         {
-            String ReturnType = null;
-            if (node == null)
+            if (exceptionType.Equals(compilation.GetTypeByMetadataName("System.SystemException")) || exceptionType.Equals(compilation.GetTypeByMetadataName("System.ApplicationException")))
             {
-                Logger.Log("node == null");
-                return ReturnType;
+                return 0;
             }
-            if (semanticModel != null)
+            else if (exceptionType.Equals(compilation.GetTypeByMetadataName("System.Exception")))
             {
-                try
-                {
-                    var symbolInfo = semanticModel.GetSymbolInfo(node);
-                    if (symbolInfo.Symbol == null)
-                    {
-                        //Logger.Log("Don't Understand Call {0}", expression.ToString ());
-                        return ReturnType;
-                    }
-                    var definition = symbolInfo.Symbol/*.OriginalDefinition*/ as IMethodSymbol;
-                    ReturnType = definition.ReturnType.ToString();
-                }
-                catch (InvalidCastException)
-                {
-                    Logger.Log("Unexpected Invocation Syntax Structure! " + node.Expression);
-                }
-                catch (InvalidOperationException)
-                {
-                    Logger.Log("Unexpected Invocation Syntax Structure! " + node.Expression);
-                }
-                catch (NullReferenceException)
-                {
-                    //Log?
-                }
-
+                return 1;
             }
-            return ReturnType;
-        }
-
-        public static String GetAPICallName(InvocationExpressionSyntax child, SemanticModel semanticModel)
-        {
-            try
+            else if (exceptionType.Equals(compilation.GetTypeByMetadataName("System.Object")))
             {
-                var symbol = semanticModel.GetSymbolInfo(child).Symbol;
-                String newCall = symbol.ToString();
-                return newCall;
-            }
-            catch
-            {
-                return child.ToString();
-            }
-        }
-
-        /// <summary>
-        /// Main Entrance
-        /// If Checked but not in a If Statement, return the smallest statement wrapping the call, or the call's parent if statement is not available.
-        /// </summary>
-        public static StatementSyntax GetIfStatementForReturnValueCheck(InvocationExpressionSyntax call,
-            SemanticModel semanticModel, String returnType)
-        {
-            bool Checked;
-            try
-            {
-                SyntaxNode BoolVar;
-                Checked = false;
-
-                StatementSyntax ReturnVarCheckIf = GetDirectIfForReturnValueCheck(call, semanticModel, returnType, out Checked, out BoolVar);
-                if ((ReturnVarCheckIf != null) && !(ReturnVarCheckIf is LocalDeclarationStatementSyntax)) return ReturnVarCheckIf;
-
-                /////////////////////////////////// Find the Assigned Variable////////////////////////////////
-                //Get Variable that's on the left side of "="
-                //If it's assigned the value of AAA(), instead of BB(AAA()) or AAA().BB()
-                //!!!!!!!!!!!!
-                StatementSyntax statement = GetStatement(call);
-                ISymbol SymbolReturnVar = GetReturnVar(call, semanticModel, BoolVar, ref returnType);
-
-                if (null == SymbolReturnVar)
-                {
-                    //No Check Found
-                    //return ReturnVarCheckIf;
-                    return null;
-                }
-
-                ///////////////////////////// check for Assigned Variables//////////////////////////////////
-                var CheckScope = statement.Parent as StatementSyntax;
-
-                ///ChildNodes(). Checks only at the same level.
-                bool FirstCheckFound = false;
-                bool ReturnVarNotChanged = true;
-
-                var IfStatementList = CheckScope.ChildNodes().OfType<IfStatementSyntax>();
-                foreach (IfStatementSyntax ifStatement in IfStatementList)
-                {
-                    if (ifStatement.Span.Start > statement.Span.End)
-                    {
-                        var Condition = (ifStatement as IfStatementSyntax).Condition;
-                        ProcessPossibleReturnValueCheckStatement
-                            (CheckScope, ifStatement, Condition, statement, semanticModel, SymbolReturnVar, returnType,
-                            ref ReturnVarCheckIf, ref Checked, ref BoolVar, ref FirstCheckFound, ref ReturnVarNotChanged);
-
-                        if (FirstCheckFound)
-                        {
-                            if (ReturnVarNotChanged)
-                                ReturnVarCheckIf = ifStatement;
-                            break;
-                        }
-                    }
-                }
-                if (ReturnVarCheckIf != null) return ReturnVarCheckIf;
-
-                var AssertStatementList = CheckScope.ChildNodes().OfType<ExpressionStatementSyntax>().Where(IsAssertLogging);
-                foreach (var AssertLogging in AssertStatementList)
-                {
-                    if (AssertLogging.Span.Start > statement.Span.End)
-                    {
-                        /*
-                         * Microsoft.SharePoint.Diagnostics.ULS.AssertTag(uint, Microsoft.SharePoint.Diagnostics.ULSCatBase, bool, string, params object[])
-                         * Microsoft.SharePoint.Diagnostics.ULS.ShipAssertTag(uint, Microsoft.SharePoint.Diagnostics.ULSCatBase, bool, string, params object[])
-                         */
-                        var Condition = (AssertLogging.Expression as InvocationExpressionSyntax).ArgumentList.Arguments[Config.AssertConditionIndex /*2*/].Expression;
-                        ProcessPossibleReturnValueCheckStatement
-                            (CheckScope, AssertLogging, Condition, statement, semanticModel, SymbolReturnVar, returnType,
-                            ref ReturnVarCheckIf, ref Checked, ref BoolVar, ref FirstCheckFound, ref ReturnVarNotChanged);
-
-                        if (FirstCheckFound)
-                        {
-                            if (ReturnVarNotChanged)
-                                ReturnVarCheckIf = AssertLogging;
-                            break;
-                        }
-                    }
-                }
-                if (ReturnVarCheckIf != null) return ReturnVarCheckIf;
-
-
-                //return (FirstCheckFound && ReturnVarNotChanged);
-                return ReturnVarCheckIf;
-            }
-            catch (NullReferenceException)
-            {
-                Checked = false;
-                return null;
-            }
-
-        }
-
-        /// <summary>
-        /// If Statement, While Statement, *Assert* Statement.
-        /// </summary>
-        private static StatementSyntax GetDirectIfForReturnValueCheck(SyntaxNode invocation)
-        {
-            try
-            {
-                IfStatementSyntax IfStatement = invocation.Ancestors().OfType<IfStatementSyntax>().First();
-                if (IfStatement.Condition.Span.Contains(invocation.Span))
-                    return IfStatement;
-            }
-            catch { }
-            try
-            {
-                WhileStatementSyntax WhileStatement = invocation.Ancestors().OfType<WhileStatementSyntax>().First();
-                if (WhileStatement.Condition.Span.Contains(invocation.Span))
-                    return WhileStatement;
-
-            }
-            catch
-            { }
-            try
-            {
-                /*
-                 * Microsoft.SharePoint.Diagnostics.ULS.AssertTag(uint, Microsoft.SharePoint.Diagnostics.ULSCatBase, bool, string, params object[])
-                 * Microsoft.SharePoint.Diagnostics.ULS.ShipAssertTag(uint, Microsoft.SharePoint.Diagnostics.ULSCatBase, bool, string, params object[])
-                 * Debug.Assert((bool)Type.InvokeMethod(type, "inheritsFrom", obj.ObjectData.AssociatedObject.GetType()));
-                 */
-                var possibleLoggingInvocation = invocation.Ancestors().OfType<InvocationExpressionSyntax>().Last(); //Last one. The biggest one just inside the statement.
-                if (IsAssertLogging(possibleLoggingInvocation)) //AssertTag
-                {
-                    if (possibleLoggingInvocation.ArgumentList.Arguments[Config.AssertConditionIndex].Span.Contains(invocation.Span))
-                        return GetStatement(possibleLoggingInvocation);
-                }
-                else if (IsAssertLogging(possibleLoggingInvocation)) //Debug.Assert
-                {
-                    if (possibleLoggingInvocation.ArgumentList.Arguments[0].Span.Contains(invocation.Span))
-                        return GetStatement(possibleLoggingInvocation);
-                }
-            }
-            catch (IndexOutOfRangeException e)
-            {
-                Logger.Log("AssertConditionIndex config  error caused exception: " + e.ToString());
-            }
-            catch (Exception e)
-            { }
-            return null;
-        }
-
-        private static StatementSyntax GetDirectIfForReturnValueCheck(SyntaxNode call, SemanticModel semanticModel,
-            String ReturnType, out bool Checked, out SyntaxNode BoolVar)
-        {
-            StatementSyntax ReturnVarCheckStatement = null;
-            BoolVar = null;
-            Checked = false;
-            // check if the Expression is in a check
-            if (ReturnType != "bool")
-            {
-                SyntaxNode temp = call.Parent;
-                while ((temp.IsKind(SyntaxKind.SimpleAssignmentExpression)) || temp.IsKind(SyntaxKind.ParenthesizedExpression)
-                    ///!!!!C.B counts and C.B() does not
-                    || (temp.IsKind(SyntaxKind.SimpleMemberAccessExpression))
-                    ///!!!C.B() is InvocationExperssion(C.B())->MemberAccessExpression(C.B)->Identifier(C)
-                    ///So it cannot go through this filter.
-                    )
-                {
-                    temp = temp.Parent;
-                }
-                if ((temp.IsKind(SyntaxKind.NotEqualsExpression)) // "AAA() != Empty" 
-                    || (temp.IsKind(SyntaxKind.EqualsExpression))) // "AAA() == null" 
-                //|| (temp.Kind == SyntaxKind.IfStatement) //"if (Regex.Match(...).Success)"
-                //|| (temp.Kind == SyntaxKind.log))
-                {
-                    ///It's checked. No matter whether an If is found.
-                    Checked = true;
-                    BoolVar = temp;
-                    temp = temp.Parent;//Fixed Bug
-                }
-                if (temp.IsKind(SyntaxKind.Argument))
-                {
-                    if (IsAssertLogging(temp.Parent.Parent))
-                    {
-                        Checked = true;
-                        BoolVar = temp;
-                        return GetStatement(temp);
-                    }
-                }
-
-                ReturnVarCheckStatement = GetDirectIfForReturnValueCheck(call);
-                try
-                {
-                    ///Mark BB(AAA()) and AAA().BB() as not checked
-                    var anotherInvocation = call.Ancestors().OfType<InvocationExpressionSyntax>().First();
-                    //If something constains anotherInvocation.Span?
-                    Checked = false;
-                    return null;
-                }
-                catch
-                {
-                    //Expected
-                }
-                if (null != ReturnVarCheckStatement)
-                {
-                    Checked = true;
-                    return ReturnVarCheckStatement;
-                }
-                else
-                {
-                    if (Checked)
-                    {
-                        ReturnVarCheckStatement = GetStatement(call);
-                        return ReturnVarCheckStatement;
-                    }
-                }
-
-            }
-            else // bool return value
-            {
-                try
-                {
-                    BoolVar = call;
-                    ///Look for "If" or "While"
-                    ReturnVarCheckStatement = GetDirectIfForReturnValueCheck(call);
-                    if (null != ReturnVarCheckStatement)
-                    {
-                        Checked = true;
-                        return ReturnVarCheckStatement;
-                    }
-                    ///Look for "**?**:**"
-                    try
-                    {
-                        var ConditionalExpression = call.Ancestors().OfType<ConditionalExpressionSyntax>().First();
-                        if (ConditionalExpression.Condition.Span.Contains(call.Span))
-                        {
-                            Checked = true;
-                            ReturnVarCheckStatement = GetStatement(ConditionalExpression);
-                            return ReturnVarCheckStatement;
-                        }
-
-                    }
-                    catch { }
-                }
-                catch (Exception e)
-                {
-                    Logger.Log(e);
-                    Logger.Log("Unknown Problem.");
-                }
-            }
-            Checked = false;
-            return null;
-        }
-
-        private static void ProcessPossibleReturnValueCheckStatement(StatementSyntax CheckScope, StatementSyntax ifStatement,
-            ExpressionSyntax Condition, StatementSyntax statement, SemanticModel semanticModel, ISymbol SymbolReturnVar,
-            String ReturnType, ref StatementSyntax ReturnVarCheckIf, ref bool Checked, ref SyntaxNode BoolVar,
-            ref bool FirstCheckFound, ref bool ReturnVarNotChanged)
-        {
-            var identifierList = Condition.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>();
-            foreach (IdentifierNameSyntax identifier in identifierList)
-            {
-                var SymbolInfo = semanticModel.GetSymbolInfo(identifier);
-                if (SymbolInfo.Symbol == null)
-                {
-                    continue;
-                }
-                var SymbolCheckVar = SymbolInfo.Symbol;
-                if (SymbolReturnVar == SymbolCheckVar)
-                {
-                    ReturnVarCheckIf = GetDirectIfForReturnValueCheck(identifier, semanticModel, ReturnType, out Checked, out BoolVar);
-                    if (!Checked)
-                    {
-                        continue;
-                    }
-                    FirstCheckFound = true;
-
-                    //check if the return variable have been changed between invocation and first check. 
-                    ReturnVarNotChanged = true;
-                    var CheckIfChangedList = CheckScope.DescendantNodes().OfType<StatementSyntax>();
-                    var Span1 = statement.Span;
-                    var Span3 = ifStatement.Span;
-                    foreach (StatementSyntax checkIfChangedStatement in CheckIfChangedList)
-                    {
-                        var Span2 = checkIfChangedStatement.Span;
-                        if ((Span1.End < Span2.Start) && (Span2.End < Span3.Start))
-                        {
-                            DataFlowAnalysis dataflow = semanticModel.AnalyzeDataFlow(checkIfChangedStatement);
-                            if (dataflow.WrittenInside.Contains(SymbolReturnVar))
-                            {
-                                ReturnVarNotChanged = false;
-                                break;
-                            }
-                        }
-                        if (Span2.End > Span3.Start) break;
-                    }
-                    break;
-                }
-            }
-        }
-
-        static public bool IsAssertLogging(SyntaxNode statement)
-        {
-            if (IsLoggingStatement(statement))
-            {
-                var loggingInvocation = FindLoggingIn(statement);
-                if (loggingInvocation.Expression.ToString().Contains("Assert"))
-                    return true;
-            }
-            return false;
-        }
-
-        public static StatementSyntax GetStatement(SyntaxNode node)
-        {
-            try
-            {
-                return node.Ancestors().OfType<StatementSyntax>().First();
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// !!!!!!!!!! ToDo
-        /// If it's assigned the value of AAA(), instead of BB(AAA()) or AAA().BB()
-        /// </summary>
-        private static ISymbol GetReturnVar(InvocationExpressionSyntax call, SemanticModel semanticModel, SyntaxNode BoolVar, ref String ReturnType)
-        {
-            if (BoolVar == null)
-            {
-                BoolVar = call;
+                return -1;
             }
             else
-            {
-                ReturnType = "bool";
-            }
-            var statement = GetStatement(BoolVar);
-            if (statement == null) return null;
-
-            /// C = AA().BB() or C = BBB(AA())  Does not count C as Return Variable for AA()
-            /// C = AA().BB count
-            try
-            {
-                var AnotherCall = call.Ancestors().OfType<InvocationExpressionSyntax>().First();
-                var Statement = GetStatement(BoolVar);
-                if (Statement.Span.Contains(AnotherCall.Span))
-                {
-                    /// C = AA().BB() or C = BBB(AA()) Does not count.
-                    return null;
-                }
-            }
-            catch (InvalidOperationException)
-            {
-                ///Expected condition
-            }
-            //if ((call.Parent.Kind != SyntaxKind.AssignExpression) 
-            //    && (call.Parent.Kind != SyntaxKind.EqualsValueClause))
-            //{
-            //    if ((BoolVar != null) &&
-            //        ((BoolVar.Parent.Kind == SyntaxKind.LogicalAndExpression) ||
-            //         (BoolVar.Parent.Kind == SyntaxKind.LogicalNotExpression) ||
-            //         (BoolVar.Parent.Kind == SyntaxKind.LogicalOrExpression)))
-            //    {
-            //        //"bool bNoUrl = bDisabled || String.IsNullOrEmpty(url);"
-            //    }
-            //    else
-            //        return null;
-            //}
-
-            ISymbol SymbolReturnVar = null;
-            if (statement.IsKind(SyntaxKind.LocalDeclarationStatement))
-            {
-                var DeclarationNode = statement as LocalDeclarationStatementSyntax;
-                var Declaration = DeclarationNode.Declaration;
-                foreach (VariableDeclaratorSyntax variable in Declaration.Variables)
-                {
-                    if (variable.Span.Contains(call.Span))
-                    {
-                        SymbolReturnVar = semanticModel.GetDeclaredSymbol(variable);
-                        if (SymbolReturnVar == null)
-                        {
-                            throw new NullReferenceException();
-                        }
-                        break;
-                    }
-                }
-
-            }
-            else
-            {
-                if (statement.IsKind(SyntaxKind.ExpressionStatement))
-                {
-                    var expressionNode = statement as ExpressionStatementSyntax;
-                    var expression = expressionNode.Expression;
-                    if ((expression.IsKind(SyntaxKind.SimpleAssignmentExpression)) //AddAssign? No.
-                         && (semanticModel != null))
-                    {
-                        BinaryExpressionSyntax binary = expression as BinaryExpressionSyntax;
-                        var ReturnVar = binary.Left;
-                        String ReturnVarName = binary.Left.ToString();
-
-                        SymbolReturnVar = semanticModel.GetSymbolInfo(ReturnVar).Symbol;
-                        if (SymbolReturnVar == null) throw new NullReferenceException();
-                    }
-                    else
-                    {
-
-                        return null;
-                    }
-                }
-                else
-                {
-                    return null;
-                }
-            }
-            return SymbolReturnVar;
+                return FindKind(exceptionType.BaseType, compilation);
         }
-
+        
     }
 }

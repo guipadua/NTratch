@@ -20,17 +20,18 @@ namespace NTratch
             appReflist.Add(mscorlib);
 
             // Find all the application API dll references files
-            IEnumerable<String> appLibFiles = Directory.EnumerateFiles(IOFile.FolderPath,
+            IEnumerable<string> appLibFiles = Directory.EnumerateFiles(IOFile.FolderPath,
                 "*.dll", SearchOption.AllDirectories);
             foreach (var libFile in appLibFiles)
             {   
                 // Add application API libs by new MetadataFileReference(libFile) 
                 var reference = MetadataReference.CreateFromFile(libFile);
                 appReflist.Add(reference);
+                Logger.Log("Adding reference: " + libFile + ".dll");
             }
         }
 
-        public void LoadByInputMode(String inputMode, String filePath)
+        public void LoadByInputMode(string inputMode, string filePath)
         {
             Logger.Log("Input mode: " + inputMode);
             switch (inputMode)
@@ -48,10 +49,10 @@ namespace NTratch
             }
         }
 
-        public static void LoadByFolder(String folderPath)
+        public static void LoadByFolder(string folderPath)
         {
             Logger.Log("Loading from folder: " + folderPath);
-            IEnumerable<String> FileNames = Directory.EnumerateFiles(folderPath, "*.cs",
+            IEnumerable<string> FileNames = Directory.EnumerateFiles(folderPath, "*.cs",
                 SearchOption.AllDirectories);
             int numFiles = FileNames.Count();
             Logger.Log("Loading " + numFiles + " *.cs files.");
@@ -70,12 +71,12 @@ namespace NTratch
             CodeAnalyzer.AnalyzeAllTrees(treeAndModelDic, compilation);
         }
 
-        public static void LoadByTxtFile(String folderPath)
+        public static void LoadByTxtFile(string folderPath)
         {
-            String txtFilePath = IOFile.CompleteFileName("AllSource.txt");
+            string txtFilePath = IOFile.CompleteFileName("AllSource.txt");
             Logger.Log("Load from txt file: " + txtFilePath);
 
-            String content = "";
+            string content = "";
             try
             {
                 using (StreamReader sr = new StreamReader(txtFilePath))
@@ -99,7 +100,7 @@ namespace NTratch
             CodeAnalyzer.AnalyzeAllTrees(treeAndModelDic, compilation);
         }
 
-        public static Tuple<SyntaxTree, SemanticModel> LoadSourceFile(String sourceFile)
+        public static Tuple<SyntaxTree, SemanticModel> LoadSourceFile(string sourceFile)
         {
             Logger.Log("Loading source file: " + sourceFile);
             //            if (InputFileName.Split('\\').Last().Contains("Log"))
@@ -122,10 +123,10 @@ namespace NTratch
             var root = tree.GetRoot();
             var usingList = root.DescendantNodes().OfType<UsingDirectiveSyntax>();
             
-            List<String> allLibNames = new List<string>();
+            List<string> allLibNames = new List<string>();
             foreach (var usingLib in usingList)
             {
-                String libName = usingLib.Name.ToString();
+                string libName = usingLib.Name.ToString();
                 MetadataReference reference = null;
                 while (libName != "" && reference == null)
                 {
@@ -183,10 +184,10 @@ namespace NTratch
             // transfer to a list
             var totalUsingList = totalUsings.SelectMany(x => x).ToList();
             // create metareference  
-            List<String> allLibNames = new List<string>();
+            List<string> allLibNames = new List<string>();
             foreach (var usingLib in totalUsingList)
             {
-                String libName = usingLib.Name.ToString();
+                string libName = usingLib.Name.ToString();
                 MetadataReference reference = null;
                 while (libName != "" && reference == null)
                 {

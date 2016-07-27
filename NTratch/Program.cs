@@ -7,8 +7,8 @@ namespace NTratch
     {
         static void Main(string[] args)
         {
-            String inputMode = args[0];
-            String filePath = args[1];
+            string inputMode = args[0];
+            string filePath = args[1];
             if (filePath.EndsWith("\\"))
             {
                 filePath = filePath.Remove(filePath.LastIndexOf('\\'));
