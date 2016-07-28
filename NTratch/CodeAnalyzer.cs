@@ -205,21 +205,84 @@ namespace NTratch
             //Basic info:
             catchBlockInfo.MetaInfo["ExceptionType"] = catchBlockInfo.ExceptionType;
             
-
+            //Try info:
             var tryBlock = catchblock.Parent as TryStatementSyntax;
+            catchBlockInfo.MetaInfo["TryBlock"] = tryBlock.ToString();
+            catchBlockInfo.OperationFeatures["ParentNodeType"] = FindParent(tryBlock).RawKind;
+            catchBlockInfo.MetaInfo["ParentNodeType"] = FindParent(tryBlock).Kind().ToString();
 
-            var fileLinePositionSpan = tree.GetLineSpan(tryBlock.Block.Span);
-            var startLine = fileLinePositionSpan.StartLinePosition.Line + 1;
-            var endLine = fileLinePositionSpan.EndLinePosition.Line + 1;
+            //Common Features - try/catch block
+            var tryFileLinePositionSpan = tree.GetLineSpan(tryBlock.Block.Span);
+            var tryStartLine = tryFileLinePositionSpan.StartLinePosition.Line + 1;
+            var tryEndLine = tryFileLinePositionSpan.EndLinePosition.Line + 1;
             
-            catchBlockInfo.OperationFeatures["Line"] = startLine;
-            catchBlockInfo.OperationFeatures["LOC"] = endLine - startLine + 1;
-            catchBlockInfo.OperationFeatures["Line"] = startLine;
+            catchBlockInfo.OperationFeatures["TryLine"] = tryStartLine;
+            catchBlockInfo.MetaInfo["TryLine"] = tryStartLine.ToString();
+            catchBlockInfo.OperationFeatures["TryLOC"] = tryEndLine - tryStartLine + 1;
+
+            var catchFileLinePositionSpan = tree.GetLineSpan(catchblock.Block.Span);
+            var catchStartLine = catchFileLinePositionSpan.StartLinePosition.Line + 1;
+            var catchEndLine = catchFileLinePositionSpan.EndLinePosition.Line + 1;
+
+            catchBlockInfo.OperationFeatures["CatchLine"] = catchStartLine;
+            catchBlockInfo.OperationFeatures["CatchLOC"] = catchEndLine - catchStartLine + 1;
+
+            catchBlockInfo.MetaInfo["CatchBlock"] = catchblock.ToString();
             
             catchBlockInfo.FilePath = tree.FilePath;
-            catchBlockInfo.MetaInfo["Line"] = startLine.ToString();
             catchBlockInfo.MetaInfo["FilePath"] = tree.FilePath;
 
+            //Common Features - parent type
+            catchBlockInfo.ParentType = FindParentType(tryBlock, model);
+            catchBlockInfo.MetaInfo["ParentType"] = catchBlockInfo.ParentType;
+
+            //Common Features - parent method
+            SyntaxNode parentNode = FindParentMethod(tryBlock);
+
+            string parentMethodName;
+            if (parentNode.IsKind(SyntaxKind.MethodDeclaration))
+            {
+                MethodDeclarationSyntax parentMethod = parentNode as MethodDeclarationSyntax;
+                
+                parentMethodName = '"' + parentMethod.Identifier.ToString();
+                parentMethodName += "(";
+
+                foreach (var param in parentMethod.ParameterList.Parameters)
+                {
+                    parentMethodName += param.Type.ToString() + ";";
+                }
+                parentMethodName += ")" + '"';
+
+                parentMethodName = parentMethodName.Replace(";)", ")");
+            } else if (parentNode.IsKind(SyntaxKind.ConstructorDeclaration))
+            {
+                ConstructorDeclarationSyntax parentConstructor = parentNode as ConstructorDeclarationSyntax;
+
+                parentMethodName = '"' + parentConstructor.Identifier.ToString();
+                parentMethodName += "(";
+
+                foreach (var param in parentConstructor.ParameterList.Parameters)
+                {
+                    parentMethodName += param.Type.ToString() + ";";
+                }
+                parentMethodName += ")" + '"';
+
+                parentMethodName = parentMethodName.Replace(";)", ")");
+            }
+            else
+                parentMethodName = "!REVIEW_THIS!"; //there might be other cases like the initializer one for java
+
+            catchBlockInfo.ParentMethod = parentMethodName;
+            catchBlockInfo.MetaInfo["ParentMethod"] = parentMethodName;
+
+            //Common Features
+            var parentMethodFileLinePositionSpan = tree.GetLineSpan(parentNode.Span);
+            var parentMethodStartLine = parentMethodFileLinePositionSpan.StartLinePosition.Line + 1;
+            var parentMethodEndLine = parentMethodFileLinePositionSpan.EndLinePosition.Line + 1;
+
+            catchBlockInfo.OperationFeatures["MethodLine"] = parentMethodStartLine;
+            catchBlockInfo.OperationFeatures["MethodLOC"] = parentMethodEndLine - parentMethodStartLine + 1;
+            
             bool hasTryStatement = catchblock.DescendantNodesAndSelf()
                       .OfType<TryStatementSyntax>().Any();
             SyntaxNode updatedCatchBlock = catchblock;
@@ -1027,7 +1090,7 @@ namespace NTratch
             return bIsToDo;
         }
 
-        public static int FindKind(INamedTypeSymbol exceptionType, Compilation compilation)
+        private static int FindKind(INamedTypeSymbol exceptionType, Compilation compilation)
         {
             if (exceptionType.Equals(compilation.GetTypeByMetadataName("System.SystemException")) || exceptionType.Equals(compilation.GetTypeByMetadataName("System.ApplicationException")))
             {
@@ -1044,6 +1107,46 @@ namespace NTratch
             else
                 return FindKind(exceptionType.BaseType, compilation);
         }
-        
+
+        private static SyntaxNode FindParent(SyntaxNode node)
+        {
+            SyntaxNode parentNode = node.Parent;
+
+            if (!(parentNode.IsKind(SyntaxKind.Block)))
+                return parentNode;
+
+            return FindParent(parentNode);
+        }
+
+        private static SyntaxNode FindParentMethod(SyntaxNode node)
+        {
+            SyntaxNode parentNode = node.Parent;
+
+            if (parentNode.IsKind(SyntaxKind.MethodDeclaration))
+                return parentNode;
+            if (parentNode.IsKind(SyntaxKind.ConstructorDeclaration))
+                return parentNode;
+            if (parentNode.IsKind(SyntaxKind.ClassDeclaration))
+                return parentNode;
+
+            return FindParentMethod(parentNode);
+        }
+
+        private static string FindParentType(SyntaxNode node, SemanticModel model)
+        {
+            SyntaxNode parentNode = node.Parent;
+
+            if (parentNode.IsKind(SyntaxKind.ClassDeclaration))
+            {
+                ClassDeclarationSyntax type = parentNode as ClassDeclarationSyntax;
+                if (model.GetDeclaredSymbol(type) != null)
+                    return model.GetDeclaredSymbol(type).ToString();
+                else
+                    return ((NamespaceDeclarationSyntax)parentNode.Parent).Name.ToString() + "." + type.Identifier.ToString();
+            }
+
+            return FindParentType(parentNode, model);
+        }
+
     }
 }

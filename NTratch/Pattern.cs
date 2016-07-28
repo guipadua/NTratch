@@ -131,8 +131,6 @@ namespace NTratch
             OperationFeatures.Add("TryLOC", 0);
             OperationFeatures.Add("CatchLine", 0);
             OperationFeatures.Add("CatchLOC", 0);
-            OperationFeatures.Add("CatchStart", 0);
-            OperationFeatures.Add("CatchLength", 0);
             OperationFeatures.Add("MethodLine", 0);
             OperationFeatures.Add("MethodLOC", 0);
 
