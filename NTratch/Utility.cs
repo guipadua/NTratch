@@ -69,7 +69,7 @@ namespace NTratch
                 MemoryStream stream = new MemoryStream();
                 StreamWriter writer = new StreamWriter(stream);
                 
-                writer.WriteLine("LoggingService.,host.Writer.Write,WriteComment,Trace.Write,TraceUtil.Write,File.WriteAllText,DebugLogException,LogError,Debug.Assert,Debug.Write,LogWarningFromException,LogSyntaxError,WriteLine,stackTrace.Append%	 	LogMethods");
+                writer.WriteLine("LoggingService.,host.Writer.Write,WriteComment,Trace.Write,TraceUtil.Write,File.WriteAllText,DebugLogException,LogError,Debug.Assert,Debug.Write,LogWarningFromException,LogSyntaxError,WriteLine,stackTrace.Append,Debug,Error%	 	LogMethods");
                 writer.WriteLine("WriteLineIf,TraceUtil.If,html.WriteLine,gen.WriteLine,output.WriteLine,o.WriteLine% NotLogMethods");
                 writer.WriteLine("0%					LogLevelIndex");
                 writer.WriteLine("abort,exit%	 	AbortMethods");

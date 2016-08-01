@@ -235,7 +235,7 @@ namespace NTratch
 
             //Some catch block info
             OperationFeatures.Add("EmptyBlock", 0);
-            OperationFeatures.Add("CatchException", 0);
+            OperationFeatures.Add("CatchException", -9);
 
             //Finally block items, if existing
             MetaInfo.Add("FinallyBlock", "-finallyblock");
