@@ -7,28 +7,85 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Text;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Reflection;
+using System.Globalization;
+using System.Threading;
 
 namespace NTratch
 {
+
     class CodeWalker
     {
         public static List<MetadataReference> appReflist = new List<MetadataReference>();
 
         public CodeWalker()
-        {        
-            var mscorlib = MetadataReference.CreateFromFile(typeof(object).Assembly.Location);
+        {
+            var mscorlib = FromType(typeof(object));
+            
             appReflist.Add(mscorlib);
-
+            //mscorlib.
             // Find all the application API dll references files
             IEnumerable<string> appLibFiles = Directory.EnumerateFiles(IOFile.FolderPath,
                 "*.dll", SearchOption.AllDirectories);
             foreach (var libFile in appLibFiles)
             {   
                 // Add application API libs by new MetadataFileReference(libFile) 
-                var reference = MetadataReference.CreateFromFile(libFile);
+                var reference = FromFile(libFile);
                 appReflist.Add(reference);
                 Logger.Log("Adding reference: " + libFile + ".dll");
             }
+        }
+
+        private static MetadataReference FromType(Type type)
+        {
+            var path = type.Assembly.Location;
+            return MetadataReference.CreateFromFile(path, documentation: GetDocumentationProvider(path));
+        }
+
+        private static MetadataReference FromFile(string path)
+        {
+            return MetadataReference.CreateFromFile(path, documentation: GetDocumentationProvider(path));
+        }
+
+        private static string GetReferenceAssembliesPath()
+        {
+            var programFiles =
+                Environment.GetFolderPath(Environment.Is64BitOperatingSystem
+                    ? Environment.SpecialFolder.ProgramFilesX86
+                    : Environment.SpecialFolder.ProgramFiles);
+            var path = Path.Combine(programFiles, @"Reference Assemblies\Microsoft\Framework\.NETFramework");
+            if (Directory.Exists(path))
+            {
+                var directories = Directory.EnumerateDirectories(path).OrderByDescending(Path.GetFileName);
+                return directories.FirstOrDefault();
+            }
+            return null;
+        }
+
+        private static DocumentationProvider GetDocumentationProvider(string location)
+        {
+            var referenceLocation = Path.ChangeExtension(location, "xml");
+            if (File.Exists(referenceLocation))
+            {
+                return GetXmlDocumentationProvider(referenceLocation);
+            }
+            var referenceAssembliesPath = GetReferenceAssembliesPath();
+            if (referenceAssembliesPath != null)
+            {
+                var fileName = Path.GetFileName(location);
+                referenceLocation = Path.ChangeExtension(Path.Combine(referenceAssembliesPath, fileName), "xml");
+                if (File.Exists(referenceLocation))
+                {
+                    return GetXmlDocumentationProvider(referenceLocation);
+                }
+            }
+            return null;
+        }
+
+        private static DocumentationProvider GetXmlDocumentationProvider(string location)
+        {
+            return (DocumentationProvider)Activator.CreateInstance(Type.GetType(
+                "Microsoft.CodeAnalysis.FileBasedXmlDocumentationProvider, Microsoft.CodeAnalysis.Workspaces.Desktop"),
+                location);
         }
 
         public void LoadByInputMode(string inputMode, string filePath)
@@ -249,6 +306,7 @@ namespace NTratch
     {
         public readonly List<InvocationExpressionSyntax> invokedMethods = new List<InvocationExpressionSyntax>();
         public readonly List<ThrowStatementSyntax> invokedThrows = new List<ThrowStatementSyntax>();
+        public readonly List<ObjectCreationExpressionSyntax> objectCreationExpressions = new List<ObjectCreationExpressionSyntax>();
 
         public override void VisitTryStatement(TryStatementSyntax node)
         {
@@ -263,6 +321,11 @@ namespace NTratch
         public override void VisitThrowStatement(ThrowStatementSyntax node)
         {
             this.invokedThrows.Add(node);
+        }
+
+        public override void VisitObjectCreationExpression(ObjectCreationExpressionSyntax node)
+        {
+            this.objectCreationExpressions.Add(node);
         }
     }
 
