@@ -31,7 +31,7 @@ namespace NTratch
                 // Add application API libs by new MetadataFileReference(libFile) 
                 var reference = FromFile(libFile);
                 appReflist.Add(reference);
-                Logger.Log("Adding reference: " + libFile + ".dll");
+                Logger.Log("Adding DLL reference: " + libFile);
             }
         }
 
@@ -83,6 +83,7 @@ namespace NTratch
 
         private static DocumentationProvider GetXmlDocumentationProvider(string location)
         {
+            Logger.Log("Adding XML reference: " + location);
             return (DocumentationProvider)Activator.CreateInstance(Type.GetType(
                 "Microsoft.CodeAnalysis.FileBasedXmlDocumentationProvider, Microsoft.CodeAnalysis.Workspaces.Desktop"),
                 location);

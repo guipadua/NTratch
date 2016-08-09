@@ -243,6 +243,8 @@ namespace NTratch
 
             //Binding based info:
             MetaInfo.Add("TryMethods", "-trymethods");
+            MetaInfo.Add("TryMethodsAndExceptions", "-trymethodsandexceptions");
+
             OperationFeatures.Add("NumMethod", 0);
             MetaInfo.Add("TryMethodsBinded", "-trymethodsbinded");
             OperationFeatures.Add("NumMethodsNotBinded", 0);
@@ -251,6 +253,12 @@ namespace NTratch
             OperationFeatures.Add("NumSubsumptionHandler", 0);
             OperationFeatures.Add("NumSupersumptionHandler", 0);
             OperationFeatures.Add("NumOtherHandler", 0);
+
+
+            OperationFeatures.Add("MaxLevel", 0);
+            OperationFeatures.Add("IsXMLSemantic", 0);
+            OperationFeatures.Add("IsXMLSyntax", 0);
+            OperationFeatures.Add("IsLoop", 0);
 
             //Comments info - not in the Catch Visitor
             OperationFeatures.Add("ToDo", 0);

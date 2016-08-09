@@ -13,8 +13,8 @@ namespace NTratch
     static class CodeAnalyzer
     {
         public static TryStatementRemover tryblockremover = new TryStatementRemover();
-        public static Dictionary<string, MethodDeclarationSyntax> AllMethodDeclarations =
-            new Dictionary<string, MethodDeclarationSyntax>();
+        public static Dictionary<string, BaseMethodDeclarationSyntax> AllMethodDeclarations =
+            new Dictionary<string, BaseMethodDeclarationSyntax>();
 
         #region Tree Analysis
         /// <summary>
@@ -35,7 +35,7 @@ namespace NTratch
                 .Select(tree => GetAllMethodDeclarations(tree, treeAndModelDic, compilation));
             foreach (var methoddeclar in allMethodDeclarations)
             {
-                MergeDic<String, MethodDeclarationSyntax>(ref AllMethodDeclarations, methoddeclar);
+                MergeDic(ref AllMethodDeclarations, methoddeclar);
             }
             Logger.Log("Cached all method declarations.");
 
@@ -393,16 +393,41 @@ namespace NTratch
                 if (finallyBlock.DescendantNodes().OfType<ThrowStatementSyntax>().Any())
                     catchBlockInfo.OperationFeatures["FinallyThrowing"] = 1;
             }
-            
-            
+
+
             //var variableAndComments = GetVariablesAndComments(tryBlock.Block);
             //var containingMethod = GetContainingMethodName(tryBlock, model);
             //var methodNameList = GetAllInvokedMethodNamesByBFS(tryBlock.Block, treeAndModelDic, compilation);
 
-            var methodAndExceptionList = GetAllInvokedMethodNamesAndExceptionsByBFS(tryBlock.Block, treeAndModelDic, compilation);
+            var possibleExceptionsCustomVisitor = new PossibleExceptionsCustomVisitor(exceptionNamedTypeSymbol, treeAndModelDic, compilation);
+            possibleExceptionsCustomVisitor.Visit(tryBlock.Block);
 
-            catchBlockInfo.OperationFeatures["NumMethod"] = methodAndExceptionList[0].Count;
-            catchBlockInfo.OperationFeatures["NumExceptions"] = methodAndExceptionList[1].Count;
+            //catchBlockInfo.MetaInfo["TryMethods"] = possibleExceptionsCustomVisitor.PrintInvokedMethodsHandlerType();
+            catchBlockInfo.MetaInfo["TryMethodsAndExceptions"] = possibleExceptionsCustomVisitor.PrintInvokedMethodsPossibleExceptions();
+            
+            catchBlockInfo.OperationFeatures["NumMethod"] = possibleExceptionsCustomVisitor.countInvokedMethodsHandlerType();
+
+            catchBlockInfo.MetaInfo["TryMethodsBinded"] = possibleExceptionsCustomVisitor.PrintInvokedMethodsBinded();
+
+            catchBlockInfo.OperationFeatures["NumMethodsNotBinded"] = possibleExceptionsCustomVisitor.getNumMethodsNotBinded();
+
+            catchBlockInfo.OperationFeatures["NumExceptions"] = possibleExceptionsCustomVisitor.getNumPossibleExceptions();
+
+            catchBlockInfo.OperationFeatures["NumSpecificHandler"] = possibleExceptionsCustomVisitor.getNumSpecificHandler();
+            catchBlockInfo.OperationFeatures["NumSubsumptionHandler"] = possibleExceptionsCustomVisitor.getNumSubsumptionHandler();
+            catchBlockInfo.OperationFeatures["NumSupersumptionHandler"] = possibleExceptionsCustomVisitor.getNumSupersumptionHandler();
+            catchBlockInfo.OperationFeatures["NumOtherHandler"] = possibleExceptionsCustomVisitor.getNumOtherHandler();
+
+            catchBlockInfo.OperationFeatures["MaxLevel"] = possibleExceptionsCustomVisitor.getMaxLevel();
+            catchBlockInfo.OperationFeatures["IsXMLSemantic"] = possibleExceptionsCustomVisitor.getNumIsXMLSemantic();
+            catchBlockInfo.OperationFeatures["IsXMLSyntax"] = possibleExceptionsCustomVisitor.getNumIsXMLSyntax();
+            catchBlockInfo.OperationFeatures["IsLoop"] = possibleExceptionsCustomVisitor.getNumIsLoop();
+
+
+            //var methodAndExceptionList = GetAllInvokedMethodNamesAndExceptionsByBFS(tryBlock.Block, treeAndModelDic, compilation);
+
+            //catchBlockInfo.OperationFeatures["NumMethod"] = methodAndExceptionList[0].Count;
+            //catchBlockInfo.OperationFeatures["NumExceptions"] = methodAndExceptionList[1].Count;
             //catchBlockInfo.TextFeatures = methodAndExceptionList[0];
             //if (containingMethod != null)
             //{
@@ -412,17 +437,17 @@ namespace NTratch
             //MergeDic<string>(ref catchBlockInfo.TextFeatures,
             //        new Dictionary<string, int>() { { "##spliter##", 0 } }); // to seperate methods and variables
             //MergeDic<string>(ref catchBlockInfo.TextFeatures, variableAndComments);
-            
+
             return catchBlockInfo;
         }
 
-        public static Dictionary<string, MethodDeclarationSyntax> GetAllMethodDeclarations(SyntaxTree tree,
+        public static Dictionary<string, BaseMethodDeclarationSyntax> GetAllMethodDeclarations(SyntaxTree tree,
             Dictionary<SyntaxTree, SemanticModel> treeAndModelDic, Compilation compilation)
         {
-            var allMethodDeclarations = new Dictionary<string, MethodDeclarationSyntax>();
+            var allMethodDeclarations = new Dictionary<string, BaseMethodDeclarationSyntax>();
 
             var root = tree.GetRoot();
-            var methodDeclarList = root.DescendantNodes().OfType<MethodDeclarationSyntax>();
+            var methodDeclarList = root.DescendantNodes().OfType<BaseMethodDeclarationSyntax>();
             var model = treeAndModelDic[tree];
             var modelBackup = compilation.GetSemanticModel(tree);
             foreach (var method in methodDeclarList)
@@ -649,307 +674,7 @@ namespace NTratch
         }
         #endregion Statement checking
 
-        #region Possible exceptions
-        //public static Dictionary<string, int> GetAllInvokedMethodNamesByBFS(SyntaxNode inputSnippet,
-        //    Dictionary<SyntaxTree, SemanticModel> treeAndModelDic, Compilation compilation)
-        //{
-        //    Dictionary<string, int> allInovkedMethods = new Dictionary<string, int>();
-        //    // to save a code snippet and its backward level
-        //    Queue<Tuple<SyntaxNode, int>> codeSnippetQueue = new Queue<Tuple<SyntaxNode, int>>();
-
-        //    codeSnippetQueue.Enqueue(new Tuple<SyntaxNode, int>(inputSnippet, 0));
-
-        //    while (codeSnippetQueue.Any())
-        //    {
-        //        Tuple<SyntaxNode, int> snippetAndLevel = codeSnippetQueue.Dequeue();
-        //        var level = snippetAndLevel.Item2;
-        //        var snippet = snippetAndLevel.Item1;
-        //        var tree = snippet.SyntaxTree;
-        //        List<InvocationExpressionSyntax> methodList = GetInvokedMethodsInACodeSnippet(snippet);
-
-        //        foreach (var invocation in methodList)
-        //        {
-        //            string methodName = IOFile.MethodNameExtraction(invocation.ToString());
-        //            try
-        //            {
-        //                // use a single semantic model
-        //                var model = treeAndModelDic[tree];
-        //                var symbolInfo = model.GetSymbolInfo(invocation);
-        //                var symbol = symbolInfo.Symbol;
-
-        //                if (symbol == null)
-        //                {   // recover by using the overall semantic model
-        //                    model = compilation.GetSemanticModel(tree);
-        //                    symbolInfo = model.GetSymbolInfo(invocation);
-        //                    symbol = symbolInfo.Symbol;
-        //                }
-        //                if (symbol != null)
-        //                {
-        //                    methodName = IOFile.MethodNameExtraction(symbol.ToString());
-        //                }
-        //                if (allInovkedMethods.ContainsKey(methodName))
-        //                {
-        //                    allInovkedMethods[methodName]++;
-        //                }
-        //                else
-        //                {
-        //                    allInovkedMethods.Add(methodName, 1);
-        //                    if (level > 3) continue; // only go backward to 3 levels
-        //                    if (methodName.StartsWith("System")) continue; // System API
-
-        //                    if (symbol != null && AllMethodDeclarations.ContainsKey(symbol.ToString()))
-        //                    {
-        //                        // find the method declaration (go to definition)
-        //                        var mdeclar = AllMethodDeclarations[symbol.ToString()];
-        //                        codeSnippetQueue.Enqueue(new Tuple<SyntaxNode, int>(mdeclar, level + 1));
-        //                    }
-        //                }
-        //            }
-        //            catch (Exception e)
-        //            {
-        //                MergeDic<String>(ref allInovkedMethods,
-        //                        new Dictionary<string, int>() { { methodName, 1 } });
-        //                Logger.Log(tree.FilePath);
-        //                Logger.Log(snippet.ToFullString());
-        //                Logger.Log(invocation.ToFullString());
-        //                Logger.Log(e);
-        //                Logger.Log(e.StackTrace);
-        //            }
-        //        }
-        //    }
-
-        //    return allInovkedMethods;
-        //}
-
-        public static Dictionary<string, int> [] GetAllInvokedMethodNamesAndExceptionsByBFS(SyntaxNode inputSnippet,
-            Dictionary<SyntaxTree, SemanticModel> treeAndModelDic, Compilation compilation)
-        {
-            Dictionary<string, int> allInovkedMethodsAndObjectCreation = new Dictionary<string, int>();
-            Dictionary<string, int> allInovkedExcetions = new Dictionary<string, int>();
-
-            Dictionary<string, int>[] allMethodsAndExceptions = new Dictionary<string, int>[2];
-            // to save a code snippet and its backward level
-            Queue<Tuple<SyntaxNode, int>> codeSnippetQueue = new Queue<Tuple<SyntaxNode, int>>();
-
-            codeSnippetQueue.Enqueue(new Tuple<SyntaxNode, int>(inputSnippet, 0));
-
-            while (codeSnippetQueue.Any())
-            {
-                Tuple<SyntaxNode, int> snippetAndLevel = codeSnippetQueue.Dequeue();
-                var level = snippetAndLevel.Item2;
-                var snippet = snippetAndLevel.Item1;
-                var tree = snippet.SyntaxTree;
-                
-                List<InvocationExpressionSyntax> methodList = GetInvokedMethodsInACodeSnippet(snippet);
-                List<ObjectCreationExpressionSyntax> objectCreationList = GetObjectCreationInACodeSnippet(snippet);
-                List<ThrowStatementSyntax> throwList = GetInvokedThrowsInACodeSnippet(snippet);
-
-                foreach (var invocation in methodList)
-                {
-                    string methodName = IOFile.MethodNameExtraction(invocation.ToString());
-                    try
-                    {
-                        // use a single semantic model
-                        var model = treeAndModelDic[tree]; 
-                        var symbolInfo = model.GetSymbolInfo(invocation);
-                        var symbol = symbolInfo.Symbol;
-
-                        if (symbol == null)
-                        {   // recover by using the overall semantic model
-                            model = compilation.GetSemanticModel(tree);
-                            symbolInfo = model.GetSymbolInfo(invocation);
-                            symbol = symbolInfo.Symbol;
-                        }
-                        if (symbol != null)
-                        {
-                            methodName = IOFile.MethodNameExtraction(symbol.ToString());
-                        }
-                        if (allInovkedMethodsAndObjectCreation.ContainsKey(methodName))
-                        {
-                            allInovkedMethodsAndObjectCreation[methodName]++;
-                        }
-                        else
-                        {
-                            allInovkedMethodsAndObjectCreation.Add(methodName, 1);
-                            if (level > 3) continue; // only go backward to 3 levels
-                            //if (methodName.StartsWith("System")) continue; // System API
-
-                            if (symbol != null /*&& AllMethodDeclarations.ContainsKey(symbol.ToString())*/)
-                            {
-                                // find the method declaration (go to definition)
-                                var mdeclar = AllMethodDeclarations[symbol.ToString()];
-                                codeSnippetQueue.Enqueue(new Tuple<SyntaxNode, int>(mdeclar, level + 1));
-                            }
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        MergeDic<String>(ref allInovkedMethodsAndObjectCreation,
-                                new Dictionary<string, int>() { { methodName, 1 } });
-                        Logger.Log(tree.FilePath);
-                        Logger.Log(snippet.ToFullString());
-                        Logger.Log(invocation.ToFullString());
-                        Logger.Log(e);
-                        Logger.Log(e.StackTrace);
-                    }
-                }
-                foreach (var objectCreation in objectCreationList)
-                {
-                    string methodName = IOFile.MethodNameExtraction(objectCreation.ToString());
-                    try
-                    {
-                        // use a single semantic model
-                        var model = treeAndModelDic[tree];
-                        var symbolInfo = model.GetSymbolInfo(objectCreation);
-                        var symbol = symbolInfo.Symbol;
-
-                        if (symbol == null)
-                        {   // recover by using the overall semantic model
-                            model = compilation.GetSemanticModel(tree);
-                            symbolInfo = model.GetSymbolInfo(objectCreation);
-                            symbol = symbolInfo.Symbol;
-                        }
-                        if (symbol != null)
-                        {
-                            methodName = IOFile.MethodNameExtraction(symbol.ToString());
-                        }
-                        if (allInovkedMethodsAndObjectCreation.ContainsKey(methodName))
-                        {
-                            allInovkedMethodsAndObjectCreation[methodName]++;
-                        }
-                        else
-                        {
-                            allInovkedMethodsAndObjectCreation.Add(methodName, 1);
-                            if (level > 3) continue; // only go backward to 3 levels
-                            if (methodName.StartsWith("System")) continue; // System API
-
-                            if (symbol != null && AllMethodDeclarations.ContainsKey(symbol.ToString()))
-                            {
-                                // find the method declaration (go to definition)
-                                var mdeclar = AllMethodDeclarations[symbol.ToString()];
-                                codeSnippetQueue.Enqueue(new Tuple<SyntaxNode, int>(mdeclar, level + 1));
-                            }
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        MergeDic<String>(ref allInovkedMethodsAndObjectCreation,
-                                new Dictionary<string, int>() { { methodName, 1 } });
-                        Logger.Log(tree.FilePath);
-                        Logger.Log(snippet.ToFullString());
-                        Logger.Log(objectCreation.ToFullString());
-                        Logger.Log(e);
-                        Logger.Log(e.StackTrace);
-                    }
-                }
-                foreach (var throwStatement in throwList)
-                {
-                    string exceptionName = "";
-                    
-                    var model = treeAndModelDic[tree]; 
-                    var symbolInfo = model.GetSymbolInfo(throwStatement.Expression);
-                    var symbol = symbolInfo.Symbol;
-
-                    //var symbol = semanticModel.GetSymbolInfo(recoverStatement).Symbol as LocalSymbol;
-                    //String typeName = symbol.Type.ToString();
-
-                    if (symbol == null)
-                    {   // recover by using the overall semantic model
-                        model = compilation.GetSemanticModel(tree);
-                        symbolInfo = model.GetSymbolInfo(throwStatement.Expression);
-                        symbol = symbolInfo.Symbol;
-                    }
-                    if (symbol != null)
-                    {
-                        exceptionName = symbol.ContainingType.ToString();
-                    }
-
-                    if (allInovkedExcetions.ContainsKey(exceptionName))
-                    {
-                        allInovkedExcetions[exceptionName]++;
-                    }
-                    else
-                    {
-                        allInovkedExcetions.Add(exceptionName, 1);
-                    }
-                }
-            }
-
-            allMethodsAndExceptions[0] = allInovkedMethodsAndObjectCreation;
-            allMethodsAndExceptions[1] = allInovkedExcetions;
-
-            return allMethodsAndExceptions;
-        }
-
-        public static List<InvocationExpressionSyntax> GetInvokedMethodsInACodeSnippet(SyntaxNode codeSnippet)
-        {
-            List<InvocationExpressionSyntax> methodList;
-
-            bool hasTryStatement = codeSnippet.DescendantNodes()
-                    .OfType<TryStatementSyntax>().Any();
-
-            if (hasTryStatement == true)
-            {
-                TryStatementSkipper tryblockskipper = new TryStatementSkipper();
-                tryblockskipper.Visit(codeSnippet);
-                methodList = tryblockskipper.invokedMethods;
-            }
-            else // has no try statement inside
-            {
-                methodList = codeSnippet.DescendantNodes().OfType<InvocationExpressionSyntax>().ToList();
-            }
-
-            return methodList;
-
-            //var updatedMethodList = methodList.Where(method => !IsLoggingStatement(method)).ToList();
-            //return updatedMethodList;
-        }
-        public static List<ObjectCreationExpressionSyntax> GetObjectCreationInACodeSnippet(SyntaxNode codeSnippet)
-        {
-            List<ObjectCreationExpressionSyntax> objectCreationList;
-
-            bool hasTryStatement = codeSnippet.DescendantNodes()
-                    .OfType<TryStatementSyntax>().Any();
-
-            if (hasTryStatement == true)
-            {
-                TryStatementSkipper tryblockskipper = new TryStatementSkipper();
-                tryblockskipper.Visit(codeSnippet);
-                objectCreationList = tryblockskipper.objectCreationExpressions;
-            }
-            else // has no try statement inside
-            {
-                objectCreationList = codeSnippet.DescendantNodes().OfType<ObjectCreationExpressionSyntax>().ToList();
-            }
-
-            return objectCreationList;
-
-            //var updatedMethodList = methodList.Where(method => !IsLoggingStatement(method)).ToList();
-            //return updatedMethodList;
-        }
-        public static List<ThrowStatementSyntax> GetInvokedThrowsInACodeSnippet(SyntaxNode codeSnippet)
-        {
-            List<ThrowStatementSyntax> throwList;
-
-            bool hasTryStatement = codeSnippet.DescendantNodes()
-                    .OfType<TryStatementSyntax>().Any();
-
-            if (hasTryStatement == true)
-            {
-                TryStatementSkipper tryblockskipper = new TryStatementSkipper();
-                tryblockskipper.Visit(codeSnippet);
-                throwList = tryblockskipper.invokedThrows;
        
-            }
-            else // has no try statement inside
-            {
-                throwList = codeSnippet.DescendantNodes().OfType<ThrowStatementSyntax>().ToList();
-            }
-
-            var updatedMethodList = throwList; //.Where(method => !IsLoggingStatement(method)).ToList();
-            return updatedMethodList;
-        }
-        #endregion Possible exceptions
 
         #region ETC
         public static Dictionary<string, int> GetVariablesAndComments(SyntaxNode codeSnippet)
