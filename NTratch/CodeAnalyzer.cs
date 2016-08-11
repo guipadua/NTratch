@@ -411,7 +411,7 @@ namespace NTratch
 
             catchBlockInfo.OperationFeatures["NumMethodsNotBinded"] = possibleExceptionsCustomVisitor.getNumMethodsNotBinded();
 
-            catchBlockInfo.OperationFeatures["NumExceptions"] = possibleExceptionsCustomVisitor.getNumPossibleExceptions();
+            catchBlockInfo.OperationFeatures["NumDistinctExceptions"] = possibleExceptionsCustomVisitor.getNumDistinctPossibleExceptions();
 
             catchBlockInfo.OperationFeatures["NumSpecificHandler"] = possibleExceptionsCustomVisitor.getNumSpecificHandler();
             catchBlockInfo.OperationFeatures["NumSubsumptionHandler"] = possibleExceptionsCustomVisitor.getNumSubsumptionHandler();

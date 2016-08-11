@@ -12,7 +12,10 @@ using System.Xml;
 
 namespace NTratch
 {
-
+    /// <summary>
+    /// This visitor is focused to be called by a try block.
+    /// It will evaluate the existing nodes on the try that are of type: InvocationExpressionSyntax and ObjectCreationExpressionSyntax
+    /// </summary>
     class PossibleExceptionsCustomVisitor : CSharpSyntaxWalker
     {
         private INamedTypeSymbol m_exceptionType;
@@ -59,22 +62,22 @@ namespace NTratch
 
             var nodeString = "";
 
-            // Checking for Binding information - BEGIN
+            // Checking for Binding (Semantic) information - BEGIN
             var p_nodeTree = p_node.SyntaxTree;
             
-            // use a single semantic model
+            // // use a single semantic model
             var p_nodeModel = m_treeAndModelDic[p_nodeTree];
             var p_nodeSymbolInfo = p_nodeModel.GetSymbolInfo(p_node);
             var p_nodeSymbol = p_nodeSymbolInfo.Symbol;
 
             if (p_nodeSymbol == null)
-            {   // recover by using the overall semantic model
+            {   // // recover by using the overall semantic model
                 p_nodeModel = m_compilation.GetSemanticModel(p_nodeTree);
                 p_nodeSymbolInfo = p_nodeModel.GetSymbolInfo(p_node);
                 p_nodeSymbol = p_nodeSymbolInfo.Symbol;
             }
             
-            //Flag if binded or not and get the name of the node that will be used
+            // //Flag if binded or not and get the name of the node that will be used
             if (p_nodeSymbol != null)
             {
                 nodeString = p_nodeSymbol.ToString();
@@ -86,24 +89,39 @@ namespace NTratch
                 invokedMethodsBinded[nodeString] = 0;
                 numMethodsNotBinded++;                
             }
-            // Checking for Binding information - END
+
+            // Checking for Binding (Semantic) information - END
+
+            //Get the declaration for this node (Syntax) - BEGIN
+
+            BaseMethodDeclarationSyntax p_nodemDeclar = null;
+            if (CodeAnalyzer.AllMethodDeclarations.ContainsKey(nodeString))
+            {
+                p_nodemDeclar = CodeAnalyzer.AllMethodDeclarations[nodeString];
+            }
+            //Get the declaration for this node (Syntax) - BEGIN
 
             // Obtaining possible exceptions lists using 3 methods - BEGIN
 
             // // Exceptions from the XML found on the Semantic model - IsXMLSemantic
-            var xmlTextSemantic = "<comment_root>" + p_nodeSymbol?.GetDocumentationCommentXml() + "</comment_root>";
+            var xmlTextSemantic = p_nodeSymbol?.GetDocumentationCommentXml();
 
-            if (xmlTextSemantic != null)
+            if (xmlTextSemantic == null || xmlTextSemantic == "")
+            {   // // recover by using the overall semantic model
+                xmlTextSemantic = m_compilation.GetSemanticModel(p_nodeTree).GetSymbolInfo(p_node).Symbol?.GetDocumentationCommentXml();
+            }
+
+            if (xmlTextSemantic != null && xmlTextSemantic != "")
             {
                 XmlDocument xmlDocFromSemantic = new XmlDocument();
-                xmlDocFromSemantic.LoadXml(xmlTextSemantic);
+                xmlDocFromSemantic.LoadXml("<comment_root>" + xmlTextSemantic + "</comment_root>");
 
-                XmlNodeList nodeList;
-                XmlNode root = xmlDocFromSemantic.DocumentElement;
+                XmlNodeList nodeListFromSemantic;
+                XmlNode rootFromSemantic = xmlDocFromSemantic.DocumentElement;
 
-                nodeList = root.SelectNodes("descendant::exception");
+                nodeListFromSemantic = rootFromSemantic.SelectNodes("descendant::exception");
 
-                foreach (XmlNode exception in nodeList)
+                foreach (XmlNode exception in nodeListFromSemantic)
                 {
                     var exceptionTypeName = exception.Attributes.GetNamedItem("cref").InnerText.Replace("T:", "");
                     //var exceptionType = m_compilation.GetTypeByMetadataName(exceptionTypeName);
@@ -116,8 +134,32 @@ namespace NTratch
                 }
             }
             // // Exceptions from the XML found on the Syntax model - IsXMLSyntax
+            var xmlTextSyntax = p_nodemDeclar?.DescendantTrivia().ToList().First(trivia => trivia.IsKind(SyntaxKind.SingleLineDocumentationCommentTrivia)).ToString();
+            
+            if (xmlTextSyntax != null)
+            {
+                XmlDocument xmlDocFromSyntax = new XmlDocument();
+                xmlDocFromSyntax.LoadXml("<comment_root>" + xmlTextSyntax + "</comment_root>");
 
-            // // Exceptions from throw declarations recursive search - IsLoop
+                XmlNodeList nodeListFromSyntax;
+                XmlNode root = xmlDocFromSyntax.DocumentElement;
+
+                nodeListFromSyntax = root.SelectNodes("descendant::exception");
+
+                foreach (XmlNode exception in nodeListFromSyntax)
+                {
+                    var exceptionTypeName = exception.Attributes.GetNamedItem("cref").InnerText.Replace("T:", "");
+                    //var exceptionType = m_compilation.GetTypeByMetadataName(exceptionTypeName);
+
+                    if (!nodePossibleExceptions.ContainsKey(exceptionTypeName))
+                        nodePossibleExceptions.Add(exceptionTypeName, BaseDicWithHandlerType(exceptionTypeName));
+
+                    nodePossibleExceptions[exceptionTypeName]["IsXMLSyntax"] = 1;
+                    numIsXMLSyntax++;
+                }
+            }
+            
+                // // Exceptions from throw declarations recursive search - IsLoop
 
             Dictionary<string, int> allInovkedMethods = new Dictionary<string, int>();
             Dictionary<string, int> allInovkedExcetions = new Dictionary<string, int>();
@@ -125,12 +167,9 @@ namespace NTratch
             // to save a code snippet and its backward level
             Queue<Tuple<SyntaxNode, int>> codeSnippetQueue = new Queue<Tuple<SyntaxNode, int>>();
             
-            //Get the declaration for this node and queue it
-            if(CodeAnalyzer.AllMethodDeclarations.ContainsKey(nodeString))
-            {
-                var p_nodemDeclar = CodeAnalyzer.AllMethodDeclarations[nodeString];
+            //Queue the current method declaration if existent
+            if(p_nodemDeclar != null)
                 codeSnippetQueue.Enqueue(new Tuple<SyntaxNode, int>(p_nodemDeclar, 0));
-            }
             
             while (codeSnippetQueue.Any())
             {
@@ -291,7 +330,6 @@ namespace NTratch
             }
 
             // Obtaining possible exceptions lists using 3 methods - END
-
             invokedMethodsPossibleExceptions[nodeString] = nodePossibleExceptions;
             
         }
@@ -308,31 +346,35 @@ namespace NTratch
             if (m_exceptionType != null)
             {
                 INamedTypeSymbol type = m_compilation.GetTypeByMetadataName(exceptionTypeName);
-                //In case is the same type, it's specific handler type - code: 0
-                //In case the catched type is equal a super class of the possible thrown type, it's a subsumption - code: 1
-                //In case the possible thrown type is equal a super class of the catched type, it's a supersumption - code: 2
-                //In case it's none of the above - most likely tree of unrelated exceptions: code: 3
-                if (m_exceptionType.Equals(type))
-                {
-                    dicXmlFromSemantic["HandlerTypeCode"] = 0;
-                    numSpecificHandler++;
-                }
-                else if (IsSuperType(m_exceptionType, type))
-                {
-                    dicXmlFromSemantic["HandlerTypeCode"] = 1;
-                    numSubsumptionHandler++;
-                }
-                else if (IsSuperType(type, m_exceptionType))
-                {
-                    dicXmlFromSemantic["HandlerTypeCode"] = 2;
-                    numSupersumptionHandler++;
-                }
-                else
-                {
-                    //it can happen when exceptions are not related on the type tree
-                    dicXmlFromSemantic["HandlerTypeCode"] = 3;
-                    numOtherHandler++;
-                }
+                if(type != null)
+                { 
+                    //In case is the same type, it's specific handler type - code: 0
+                    //In case the catched type is equal a super class of the possible thrown type, it's a subsumption - code: 1
+                    //In case the possible thrown type is equal a super class of the catched type, it's a supersumption - code: 2
+                    //In case it's none of the above - most likely tree of unrelated exceptions: code: 3
+                    if (m_exceptionType.Equals(type))
+                    {
+                        dicXmlFromSemantic["HandlerTypeCode"] = 0;
+                        numSpecificHandler++;
+                    }
+                    else if (IsSuperType(m_exceptionType, type))
+                    {
+                        dicXmlFromSemantic["HandlerTypeCode"] = 1;
+                        numSubsumptionHandler++;
+                    }
+                    else if (IsSuperType(type, m_exceptionType))
+                    {
+                        dicXmlFromSemantic["HandlerTypeCode"] = 2;
+                        numSupersumptionHandler++;
+                    }
+                    else
+                    {
+                        //it can happen when exceptions are not related on the type tree
+                        dicXmlFromSemantic["HandlerTypeCode"] = 3;
+                        numOtherHandler++;
+                    }
+                } else
+                    dicXmlFromSemantic["HandlerTypeCode"] = -8;
             }
 
             return dicXmlFromSemantic;
@@ -451,9 +493,17 @@ namespace NTratch
             return invokedMethodsPossibleExceptions.Count;
         }
         
-        public int getNumPossibleExceptions()
+        public int getNumDistinctPossibleExceptions()
         {
-            return invokedMethodsPossibleExceptions.Values.Count;
+            int numDistinctPossibleExceptions = 0;
+
+            //invokedMethodsPossibleExceptions.
+
+            foreach (var entry in invokedMethodsPossibleExceptions.Values)
+            {
+                numDistinctPossibleExceptions += entry.Keys.Count;                
+            }
+            return numDistinctPossibleExceptions;
         }
         public int getNumSpecificHandler()
         {
@@ -786,6 +836,7 @@ namespace NTratch
                 TryStatementSkipper tryblockskipper = new TryStatementSkipper();
                 tryblockskipper.Visit(codeSnippet);
                 throwList = tryblockskipper.invokedThrows;
+
 
             }
             else // has no try statement inside

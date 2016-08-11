@@ -248,12 +248,13 @@ namespace NTratch
             OperationFeatures.Add("NumMethod", 0);
             MetaInfo.Add("TryMethodsBinded", "-trymethodsbinded");
             OperationFeatures.Add("NumMethodsNotBinded", 0);
-            OperationFeatures.Add("NumExceptions", 0);
+
+            OperationFeatures.Add("NumDistinctExceptions", 0);
+
             OperationFeatures.Add("NumSpecificHandler", 0);
             OperationFeatures.Add("NumSubsumptionHandler", 0);
             OperationFeatures.Add("NumSupersumptionHandler", 0);
             OperationFeatures.Add("NumOtherHandler", 0);
-
 
             OperationFeatures.Add("MaxLevel", 0);
             OperationFeatures.Add("IsXMLSemantic", 0);
