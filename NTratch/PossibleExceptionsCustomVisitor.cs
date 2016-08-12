@@ -1,11 +1,8 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using NTratch;
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Text;
 using System.Xml;
@@ -13,8 +10,8 @@ using System.Xml;
 namespace NTratch
 {
     /// <summary>
-    /// This visitor is focused to be called by a try block.
-    /// It will evaluate the existing nodes on the try that are of type: InvocationExpressionSyntax and ObjectCreationExpressionSyntax
+    /// This visitor is focused to be called by a declaration, either try block or a method (constructor or not).
+    /// It will evaluate the existing nodes on the try that are of type: InvocationExpressionSyntax ObjectCreationExpressionSyntax
     /// </summary>
     class PossibleExceptionsCustomVisitor : CSharpSyntaxWalker
     {
@@ -25,76 +22,230 @@ namespace NTratch
         private Dictionary<string, sbyte> invokedMethodsBinded = new Dictionary<string, sbyte>();
 
         //private Dictionary<string, Dictionary<string, sbyte>> invokedMethodsHandlerType = new Dictionary<string, Dictionary<string, sbyte>>();
-        private Dictionary<string, Dictionary<string, Dictionary<string, sbyte>>> invokedMethodsPossibleExceptions = new Dictionary<string, Dictionary<string, Dictionary<string, sbyte>>>();
+        private Dictionary<string, Dictionary<string, Dictionary<string, sbyte>>> m_invokedMethodsPossibleExceptions = new Dictionary<string, Dictionary<string, Dictionary<string, sbyte>>>();
 
-        private int numSpecificHandler = 0;
-        private int numSubsumptionHandler = 0;
-        private int numSupersumptionHandler = 0;
-        private int numOtherHandler = 0;
+        private Dictionary<string, Dictionary<string, sbyte>> m_possibleExceptions = new Dictionary<string, Dictionary<string, sbyte>>();
+
+        private int m_visitorMaxLevel = 0;
+        private int m_nodeMaxLevel = 0;
+
+        private bool isCounted = false;
+
         private int numMethodsNotBinded = 0;
 
-        private int numIsXMLSemantic = 0;
-        private int numIsXMLSyntax = 0;
-        private int numIsLoop = 0;
+        public bool m_isForAnalysis { get; private set; }
 
-        private int m_maxLevel = 0;
-
-        public PossibleExceptionsCustomVisitor(INamedTypeSymbol p_exceptionType, Dictionary<SyntaxTree, SemanticModel> p_treeAndModelDic, Compilation p_compilation)
+        /// <summary>
+        /// Constructor
+        /// </summary>
+        /// <param name="p_isForAnalysis">This is know if the found exceptions should be evaluated against the parent try-catch block, if any.</param>
+        public PossibleExceptionsCustomVisitor(ref INamedTypeSymbol p_exceptionType, ref Dictionary<SyntaxTree, SemanticModel> p_treeAndModelDic, ref Compilation p_compilation, bool p_isForAnalysis)
         {
             m_exceptionType = p_exceptionType;
             m_compilation = p_compilation;
             m_treeAndModelDic = p_treeAndModelDic;
+            m_isForAnalysis = p_isForAnalysis;            
         }
 
         public override void VisitInvocationExpression(InvocationExpressionSyntax node)
         {
-            processNode(node);
+            processExpressionNodeAndVisit(node);
         }
 
         public override void VisitObjectCreationExpression(ObjectCreationExpressionSyntax node)
         {
-            processNode(node);
+            processExpressionNodeAndVisit(node);
         }
 
-        private void processNode(SyntaxNode p_node)
+        public override void VisitThrowStatement(ThrowStatementSyntax node)
         {
-            Dictionary<string, Dictionary<string, sbyte>> nodePossibleExceptions = new Dictionary<string, Dictionary<string, sbyte>>();
+            //processNode(node);
+            string exceptionName = "";
 
+            var treeThrow = node.SyntaxTree;
+            var modelThrow = m_treeAndModelDic[treeThrow];
+            var symbolInfoThrow = modelThrow.GetSymbolInfo(node.Expression);
+            var symbolThrow = symbolInfoThrow.Symbol;
+
+            if (symbolThrow == null)
+            {   // recover by using the overall semantic model
+                modelThrow = m_compilation.GetSemanticModel(treeThrow);
+                symbolInfoThrow = modelThrow.GetSymbolInfo(node.Expression);
+                symbolThrow = symbolInfoThrow.Symbol;
+            }
+
+            //var symbol = semanticModel.GetSymbolInfo(recoverStatement).Symbol as LocalSymbol;
+            //String typeName = symbol.Type.ToString();
+
+            if (symbolThrow != null)
+            {
+                exceptionName = symbolThrow.ContainingType.ToString();
+            }
+
+            var possibleException = new Dictionary<string, Dictionary<string, sbyte>>();
+
+            AddPossibleExceptions(exceptionName, ref possibleException, "IsThrow");
+
+            //check if inside a Try
+            if (!m_isForAnalysis)
+                MergePossibleExceptionsDic(ref m_possibleExceptions, getValidPossibleExceptions(node, possibleException));
+            else
+                MergePossibleExceptionsDic(ref m_possibleExceptions, possibleException);
+
+        }
+
+        public void MergePossibleExceptionsDic(ref Dictionary<string, Dictionary<string, sbyte>> dicReceiver, Dictionary<string, Dictionary<string, sbyte>> dicToAppend)
+        {
+            foreach (var exceptionValues in dicToAppend)
+            {
+                if (exceptionValues.Key == null) continue;
+                if (!dicReceiver.ContainsKey(exceptionValues.Key))
+                {
+                    dicReceiver.Add(exceptionValues.Key, exceptionValues.Value);
+                }
+                else
+                {
+                    foreach (var value in exceptionValues.Value)
+                    {
+                        if (value.Key != "HandlerTypeCode")
+                        {
+                            dicReceiver[exceptionValues.Key][value.Key] = Convert.ToSByte(Convert.ToInt16(dicReceiver[exceptionValues.Key][value.Key])
+                                                                            + Convert.ToInt16(value.Value));
+                            if (dicReceiver[exceptionValues.Key][value.Key] > 1)
+                                dicReceiver[exceptionValues.Key][value.Key] = 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        private Dictionary<string, Dictionary<string, sbyte>> getValidPossibleExceptions(SyntaxNode node, Dictionary<string, Dictionary<string, sbyte>> p_possibleExceptions)
+        {
+
+            Dictionary<string, Dictionary<string, sbyte>> validPossibleExceptions = new Dictionary<string, Dictionary<string, sbyte>>();
+
+            var parentTry = CodeAnalyzer.FindParentTry(node) as TryStatementSyntax;
+
+            if (parentTry == null)
+            {
+                return p_possibleExceptions;
+            }
+            else
+            {
+                foreach (var catchblock in parentTry.Catches)
+                {
+                    var tree = catchblock.SyntaxTree;
+                    var model = m_treeAndModelDic[tree];
+
+                    string exceptionType;
+
+                    TypeSyntax exceptionTypeSyntax = null;
+                    INamedTypeSymbol exceptionNamedTypeSymbol = null;
+
+                    if (catchblock.Declaration != null)
+                    {
+                        exceptionTypeSyntax = catchblock.Declaration.Type;
+                        exceptionNamedTypeSymbol = model.GetTypeInfo(exceptionTypeSyntax).ConvertedType as INamedTypeSymbol;
+
+                        if (exceptionNamedTypeSymbol != null)
+                        {
+                            exceptionType = exceptionNamedTypeSymbol.ToString();
+
+                            foreach (var possibleThrow in p_possibleExceptions)
+                            {
+                                sbyte handlerTypeCode;
+                                handlerTypeCode = GetHandlerTypeCode(exceptionNamedTypeSymbol, possibleThrow.Key);
+
+                                //0: SPECIFIC, 1: SUBSUMPTION - the only two possible ways to really catch
+                                if (!(handlerTypeCode == 0 || handlerTypeCode == 1))
+                                {
+                                    if (!validPossibleExceptions.ContainsKey(possibleThrow.Key))
+                                        validPossibleExceptions.Add(possibleThrow.Key, possibleThrow.Value);
+                                }
+                            }
+                        }
+                        else
+                            exceptionType = "!NO_NAMED_TYPE!";
+                    }
+                    else
+                        exceptionType = "!NO_EXCEPTION_DECLARED!";
+                }
+            }
+
+            return validPossibleExceptions;
+        }
+
+        private void processExpressionNodeAndVisit(SyntaxNode node)
+        {
+
+            m_nodeMaxLevel = 1;
+            
+            //Go get exceptions based on sematinc and syntax documentation + declaration loop
+            BaseMethodDeclarationSyntax nodemDeclar = null;
+            var nodePossibleExceptions = new Dictionary<string, Dictionary<string, sbyte>>();
+            var nodeString = processExpressionNode(node, ref nodePossibleExceptions, ref nodemDeclar);
+
+            //Go get exceptions based on visiting declarations - recursive way
+            if (nodemDeclar != null)
+            {
+                var possibleExceptionsCustomVisitor = new PossibleExceptionsCustomVisitor(ref m_exceptionType, ref m_treeAndModelDic, ref m_compilation, false);
+                possibleExceptionsCustomVisitor.Visit(nodemDeclar);
+                MergePossibleExceptionsDic(ref nodePossibleExceptions, possibleExceptionsCustomVisitor.m_possibleExceptions);
+
+                m_nodeMaxLevel = possibleExceptionsCustomVisitor.m_visitorMaxLevel;
+               
+            }
+
+            
+            //If this is not in the level to expose the exceptions for analysis, validate if they are really coming out or not
+            var nodeAndNodePossibleExceptions = new Dictionary<string, Dictionary<string, Dictionary<string, sbyte>>>();
+            var validPossibleExceptions = new Dictionary<string, Dictionary<string, sbyte>>();
+
+            if (!m_isForAnalysis)
+                validPossibleExceptions = getValidPossibleExceptions(node, nodePossibleExceptions);
+            else
+                validPossibleExceptions = nodePossibleExceptions;
+
+            MergePossibleExceptionsDic(ref m_possibleExceptions, validPossibleExceptions);
+            nodeAndNodePossibleExceptions.Add(nodeString, validPossibleExceptions);
+            CodeAnalyzer.MergeDic(ref m_invokedMethodsPossibleExceptions, nodeAndNodePossibleExceptions);
+        }
+
+        private string processExpressionNode(SyntaxNode p_node, ref Dictionary<string, Dictionary<string, sbyte>> p_nodePossibleExceptions, ref BaseMethodDeclarationSyntax p_nodemDeclar)
+        {
             var nodeString = "";
 
             // Checking for Binding (Semantic) information - BEGIN
             var p_nodeTree = p_node.SyntaxTree;
-            
+
             // // use a single semantic model
             var p_nodeModel = m_treeAndModelDic[p_nodeTree];
             var p_nodeSymbolInfo = p_nodeModel.GetSymbolInfo(p_node);
             var p_nodeSymbol = p_nodeSymbolInfo.Symbol;
 
+            // // recover by using the overall semantic model
             if (p_nodeSymbol == null)
-            {   // // recover by using the overall semantic model
+            {
                 p_nodeModel = m_compilation.GetSemanticModel(p_nodeTree);
                 p_nodeSymbolInfo = p_nodeModel.GetSymbolInfo(p_node);
                 p_nodeSymbol = p_nodeSymbolInfo.Symbol;
             }
-            
+
             // //Flag if binded or not and get the name of the node that will be used
             if (p_nodeSymbol != null)
             {
                 nodeString = p_nodeSymbol.ToString();
-                invokedMethodsBinded[nodeString] = 1;                
+                invokedMethodsBinded[nodeString] = 1;
             }
             else
             {
                 nodeString = p_node.ToString();
                 invokedMethodsBinded[nodeString] = 0;
-                numMethodsNotBinded++;                
+                numMethodsNotBinded++;
             }
-
             // Checking for Binding (Semantic) information - END
 
             //Get the declaration for this node (Syntax) - BEGIN
-
-            BaseMethodDeclarationSyntax p_nodemDeclar = null;
             if (CodeAnalyzer.AllMethodDeclarations.ContainsKey(nodeString))
             {
                 p_nodemDeclar = CodeAnalyzer.AllMethodDeclarations[nodeString];
@@ -105,78 +256,127 @@ namespace NTratch
 
             // // Exceptions from the XML found on the Semantic model - IsXMLSemantic
             var xmlTextSemantic = p_nodeSymbol?.GetDocumentationCommentXml();
-
             if (xmlTextSemantic == null || xmlTextSemantic == "")
             {   // // recover by using the overall semantic model
                 xmlTextSemantic = m_compilation.GetSemanticModel(p_nodeTree).GetSymbolInfo(p_node).Symbol?.GetDocumentationCommentXml();
             }
-
-            if (xmlTextSemantic != null && xmlTextSemantic != "")
-            {
-                XmlDocument xmlDocFromSemantic = new XmlDocument();
-                xmlDocFromSemantic.LoadXml("<comment_root>" + xmlTextSemantic + "</comment_root>");
-
-                XmlNodeList nodeListFromSemantic;
-                XmlNode rootFromSemantic = xmlDocFromSemantic.DocumentElement;
-
-                nodeListFromSemantic = rootFromSemantic.SelectNodes("descendant::exception");
-
-                foreach (XmlNode exception in nodeListFromSemantic)
-                {
-                    var exceptionTypeName = exception.Attributes.GetNamedItem("cref").InnerText.Replace("T:", "");
-                    //var exceptionType = m_compilation.GetTypeByMetadataName(exceptionTypeName);
-
-                    if (!nodePossibleExceptions.ContainsKey(exceptionTypeName))
-                        nodePossibleExceptions.Add(exceptionTypeName, BaseDicWithHandlerType(exceptionTypeName));
-
-                    nodePossibleExceptions[exceptionTypeName]["IsXMLSemantic"] = 1;
-                    numIsXMLSemantic++;
-                }
-            }
+            NodeFindExceptionsInXML(xmlTextSemantic, ref p_nodePossibleExceptions, "IsXMLSemantic");
+            
             // // Exceptions from the XML found on the Syntax model - IsXMLSyntax
-            var xmlTextSyntax = p_nodemDeclar?.DescendantTrivia().ToList().First(trivia => trivia.IsKind(SyntaxKind.SingleLineDocumentationCommentTrivia)).ToString();
-            
-            if (xmlTextSyntax != null)
+            var xmlTextSyntax = p_nodemDeclar?
+                                    .DescendantTrivia()
+                                    .ToList()
+                                    .FirstOrDefault(trivia => trivia.IsKind(SyntaxKind.SingleLineDocumentationCommentTrivia))
+                                    .ToString();
+            NodeFindExceptionsInXML(xmlTextSyntax, ref p_nodePossibleExceptions, "IsXMLSyntax");
+
+            // // Exceptions from throw declarations recursive search - IsLoop
+
+            //processIsLoop(ref p_nodemDeclar, ref p_nodePossibleExceptions);
+
+            // Obtaining possible exceptions lists using 3 methods - END
+            return nodeString;
+        }
+        
+        public void NodeFindExceptionsInXML(string xml, ref Dictionary<string, Dictionary<string, sbyte>> p_nodePossibleExceptions, string p_originKey)
+        {
+            if (xml != null && xml != "")
             {
-                XmlDocument xmlDocFromSyntax = new XmlDocument();
-                xmlDocFromSyntax.LoadXml("<comment_root>" + xmlTextSyntax + "</comment_root>");
+                XmlDocument xmlDoc = new XmlDocument();
+                xmlDoc.LoadXml("<comment_root>" + xml + "</comment_root>");
 
-                XmlNodeList nodeListFromSyntax;
-                XmlNode root = xmlDocFromSyntax.DocumentElement;
+                XmlNodeList nodeList;
+                XmlNode root = xmlDoc.DocumentElement;
 
-                nodeListFromSyntax = root.SelectNodes("descendant::exception");
+                nodeList = root.SelectNodes("descendant::exception");
 
-                foreach (XmlNode exception in nodeListFromSyntax)
+                foreach (XmlNode exception in nodeList)
                 {
                     var exceptionTypeName = exception.Attributes.GetNamedItem("cref").InnerText.Replace("T:", "");
                     //var exceptionType = m_compilation.GetTypeByMetadataName(exceptionTypeName);
 
-                    if (!nodePossibleExceptions.ContainsKey(exceptionTypeName))
-                        nodePossibleExceptions.Add(exceptionTypeName, BaseDicWithHandlerType(exceptionTypeName));
-
-                    nodePossibleExceptions[exceptionTypeName]["IsXMLSyntax"] = 1;
-                    numIsXMLSyntax++;
+                    AddPossibleExceptions(exceptionTypeName, ref p_nodePossibleExceptions, p_originKey);                    
                 }
             }
-            
-                // // Exceptions from throw declarations recursive search - IsLoop
+        }
 
+        public void AddPossibleExceptions(string p_exceptionTypeName, ref Dictionary<string, Dictionary<string, sbyte>> p_PossibleExceptions, string p_originKey)
+        {
+            if (!p_PossibleExceptions.ContainsKey(p_exceptionTypeName))
+                p_PossibleExceptions.Add(p_exceptionTypeName, BaseDicWithHandlerType(p_exceptionTypeName));
+
+            p_PossibleExceptions[p_exceptionTypeName][p_originKey] = 1;
+        }
+        
+        private Dictionary<string, sbyte> BaseDicWithHandlerType (string exceptionTypeName)
+        {
+            //Default value definition for when coming from XML Semantics
+            var dicXmlFromSemantic = new Dictionary<string, sbyte>();
+            dicXmlFromSemantic.Add("HandlerTypeCode", -9);
+            dicXmlFromSemantic.Add("IsXMLSemantic", 0);
+            dicXmlFromSemantic.Add("IsXMLSyntax", 0);
+            dicXmlFromSemantic.Add("IsLoop", 0);
+            dicXmlFromSemantic.Add("IsThrow", 0);
+
+            dicXmlFromSemantic["HandlerTypeCode"] = GetHandlerTypeCode(m_exceptionType, exceptionTypeName);
+
+            return dicXmlFromSemantic;
+        }
+
+        public sbyte GetHandlerTypeCode(INamedTypeSymbol catchedType, string possibleThrowType)
+        {
+            sbyte handlerTypeCode = -9;
+            if (catchedType != null)
+            {
+                INamedTypeSymbol type = m_compilation.GetTypeByMetadataName(possibleThrowType);
+                if (type != null)
+                {
+                    //In case is the same type, it's specific handler type - code: 0
+                    //In case the catched type is equal a super class of the possible thrown type, it's a subsumption - code: 1
+                    //In case the possible thrown type is equal a super class of the catched type, it's a supersumption - code: 2
+                    //In case it's none of the above - most likely tree of unrelated exceptions: code: 3
+                    if (catchedType.Equals(type))
+                    {
+                        handlerTypeCode = 0;                        
+                    }
+                    else if (IsSuperType(catchedType, type))
+                    {
+                        handlerTypeCode = 1;                        
+                    }
+                    else if (IsSuperType(type, catchedType))
+                    {
+                        handlerTypeCode = 2;                        
+                    }
+                    else
+                    {
+                        //it can happen when exceptions are not related on the type tree
+                        handlerTypeCode = 3;                        
+                    }
+                }
+                else
+                    handlerTypeCode = -8;
+            }
+            return handlerTypeCode;
+        }
+
+        public void processIsLoop(ref BaseMethodDeclarationSyntax p_nodemDeclar, ref Dictionary<string, Dictionary<string, sbyte>> p_nodePossibleExceptions)
+        {
             Dictionary<string, int> allInovkedMethods = new Dictionary<string, int>();
-            Dictionary<string, int> allInovkedExcetions = new Dictionary<string, int>();
+            //Dictionary<string, int> allInovkedExcetions = new Dictionary<string, int>();
 
             // to save a code snippet and its backward level
             Queue<Tuple<SyntaxNode, int>> codeSnippetQueue = new Queue<Tuple<SyntaxNode, int>>();
-            
+
             //Queue the current method declaration if existent
-            if(p_nodemDeclar != null)
+            if (p_nodemDeclar != null)
                 codeSnippetQueue.Enqueue(new Tuple<SyntaxNode, int>(p_nodemDeclar, 0));
-            
+
             while (codeSnippetQueue.Any())
             {
                 Tuple<SyntaxNode, int> snippetAndLevel = codeSnippetQueue.Dequeue();
                 var level = snippetAndLevel.Item2;
-                if(level > m_maxLevel)
-                    m_maxLevel = level;
+                if (level > m_nodeMaxLevel)
+                    m_nodeMaxLevel = level;
 
                 var snippet = snippetAndLevel.Item1;
                 var treeQueue = snippet.SyntaxTree;
@@ -312,77 +512,23 @@ namespace NTratch
                         exceptionName = symbolQueue.ContainingType.ToString();
                     }
 
-                    if (allInovkedExcetions.ContainsKey(exceptionName))
-                    {
-                        allInovkedExcetions[exceptionName]++;
-                    }
-                    else
-                    {
-                        allInovkedExcetions.Add(exceptionName, 1);
-                    }
+                    //if (allInovkedExcetions.ContainsKey(exceptionName))
+                    //{
+                    //    allInovkedExcetions[exceptionName]++;
+                    //}
+                    //else
+                    //{
+                    //    allInovkedExcetions.Add(exceptionName, 1);
+                    //}
 
-                    if (!nodePossibleExceptions.ContainsKey(exceptionName))
-                        nodePossibleExceptions.Add(exceptionName, BaseDicWithHandlerType(exceptionName));
-
-                    nodePossibleExceptions[exceptionName]["IsLoop"] = 1;
-                    numIsLoop++;
+                    AddPossibleExceptions(exceptionName, ref p_nodePossibleExceptions, "IsLoop");
                 }
             }
-
-            // Obtaining possible exceptions lists using 3 methods - END
-            invokedMethodsPossibleExceptions[nodeString] = nodePossibleExceptions;
-            
         }
 
-        private Dictionary<string, sbyte> BaseDicWithHandlerType (string exceptionTypeName)
-        {
-            //Default value definition for when coming from XML Semantics
-            var dicXmlFromSemantic = new Dictionary<string, sbyte>();
-            dicXmlFromSemantic.Add("HandlerTypeCode", -9);
-            dicXmlFromSemantic.Add("IsXMLSemantic", 0);
-            dicXmlFromSemantic.Add("IsXMLSyntax", 0);
-            dicXmlFromSemantic.Add("IsLoop", 0);
-
-            if (m_exceptionType != null)
-            {
-                INamedTypeSymbol type = m_compilation.GetTypeByMetadataName(exceptionTypeName);
-                if(type != null)
-                { 
-                    //In case is the same type, it's specific handler type - code: 0
-                    //In case the catched type is equal a super class of the possible thrown type, it's a subsumption - code: 1
-                    //In case the possible thrown type is equal a super class of the catched type, it's a supersumption - code: 2
-                    //In case it's none of the above - most likely tree of unrelated exceptions: code: 3
-                    if (m_exceptionType.Equals(type))
-                    {
-                        dicXmlFromSemantic["HandlerTypeCode"] = 0;
-                        numSpecificHandler++;
-                    }
-                    else if (IsSuperType(m_exceptionType, type))
-                    {
-                        dicXmlFromSemantic["HandlerTypeCode"] = 1;
-                        numSubsumptionHandler++;
-                    }
-                    else if (IsSuperType(type, m_exceptionType))
-                    {
-                        dicXmlFromSemantic["HandlerTypeCode"] = 2;
-                        numSupersumptionHandler++;
-                    }
-                    else
-                    {
-                        //it can happen when exceptions are not related on the type tree
-                        dicXmlFromSemantic["HandlerTypeCode"] = 3;
-                        numOtherHandler++;
-                    }
-                } else
-                    dicXmlFromSemantic["HandlerTypeCode"] = -8;
-            }
-
-            return dicXmlFromSemantic;
-        }
-        
         public string PrintInvokedMethodsPossibleExceptions()
         {
-            return PrintDictionary(invokedMethodsPossibleExceptions);
+            return PrintDictionary(m_invokedMethodsPossibleExceptions);
         }
 
         public string PrintInvokedMethodsBinded()
@@ -490,36 +636,38 @@ namespace NTratch
 
         public int countInvokedMethodsHandlerType()
         {
-            return invokedMethodsPossibleExceptions.Count;
+            return m_invokedMethodsPossibleExceptions.Count;
         }
         
         public int getNumDistinctPossibleExceptions()
         {
-            int numDistinctPossibleExceptions = 0;
+            return m_possibleExceptions.Count;
+        }
 
-            //invokedMethodsPossibleExceptions.
+        public string PrintDistinctPossibleExceptions()
+        {
+            return PrintDictionary(m_possibleExceptions);
+        }
 
-            foreach (var entry in invokedMethodsPossibleExceptions.Values)
-            {
-                numDistinctPossibleExceptions += entry.Keys.Count;                
-            }
-            return numDistinctPossibleExceptions;
+        public int CountMetricsForExceptions(string strKey, sbyte sbyteCode)
+        {
+            return m_possibleExceptions.Sum(exception => exception.Value.Count(key => (key.Key == strKey && key.Value == sbyteCode)));
         }
         public int getNumSpecificHandler()
         {
-            return numSpecificHandler;
+            return CountMetricsForExceptions("HandlerTypeCode", 0);
         }
         public int getNumSubsumptionHandler()
         {
-            return numSubsumptionHandler;
+            return CountMetricsForExceptions("HandlerTypeCode", 1);
         }
         public int getNumSupersumptionHandler()
         {
-            return numSupersumptionHandler;
+            return CountMetricsForExceptions("HandlerTypeCode", 2);
         }
         public int getNumOtherHandler()
         {
-            return numOtherHandler;
+            return CountMetricsForExceptions("HandlerTypeCode", 3);
         }
         public int getNumMethodsNotBinded()
         {
@@ -527,21 +675,25 @@ namespace NTratch
         }
         public int getNumIsXMLSemantic()
         {
-            return numIsXMLSemantic;
+            return CountMetricsForExceptions("IsXMLSemantic", 1);
         }
         public int getNumIsLoop()
         {
-            return numIsLoop;
+            return CountMetricsForExceptions("IsLoop", 1);
         }
         public int getNumIsXMLSyntax()
         {
-            return numIsXMLSyntax;
+            return CountMetricsForExceptions("IsXMLSyntax", 1);
+        }
+        public int getNumIsThrow()
+        {
+            return CountMetricsForExceptions("IsThrow", 1);
         }
 
 
         internal int getMaxLevel()
         {
-            return m_maxLevel;
+            return m_visitorMaxLevel;
         }
 
 

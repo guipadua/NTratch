@@ -393,13 +393,12 @@ namespace NTratch
                 if (finallyBlock.DescendantNodes().OfType<ThrowStatementSyntax>().Any())
                     catchBlockInfo.OperationFeatures["FinallyThrowing"] = 1;
             }
-
-
+            
             //var variableAndComments = GetVariablesAndComments(tryBlock.Block);
             //var containingMethod = GetContainingMethodName(tryBlock, model);
             //var methodNameList = GetAllInvokedMethodNamesByBFS(tryBlock.Block, treeAndModelDic, compilation);
 
-            var possibleExceptionsCustomVisitor = new PossibleExceptionsCustomVisitor(exceptionNamedTypeSymbol, treeAndModelDic, compilation);
+            var possibleExceptionsCustomVisitor = new PossibleExceptionsCustomVisitor(ref exceptionNamedTypeSymbol, ref treeAndModelDic, ref compilation, true);
             possibleExceptionsCustomVisitor.Visit(tryBlock.Block);
 
             //catchBlockInfo.MetaInfo["TryMethods"] = possibleExceptionsCustomVisitor.PrintInvokedMethodsHandlerType();
@@ -411,6 +410,7 @@ namespace NTratch
 
             catchBlockInfo.OperationFeatures["NumMethodsNotBinded"] = possibleExceptionsCustomVisitor.getNumMethodsNotBinded();
 
+            catchBlockInfo.MetaInfo["DistinctExceptions"] = possibleExceptionsCustomVisitor.PrintDistinctPossibleExceptions();
             catchBlockInfo.OperationFeatures["NumDistinctExceptions"] = possibleExceptionsCustomVisitor.getNumDistinctPossibleExceptions();
 
             catchBlockInfo.OperationFeatures["NumSpecificHandler"] = possibleExceptionsCustomVisitor.getNumSpecificHandler();
@@ -421,8 +421,8 @@ namespace NTratch
             catchBlockInfo.OperationFeatures["MaxLevel"] = possibleExceptionsCustomVisitor.getMaxLevel();
             catchBlockInfo.OperationFeatures["IsXMLSemantic"] = possibleExceptionsCustomVisitor.getNumIsXMLSemantic();
             catchBlockInfo.OperationFeatures["IsXMLSyntax"] = possibleExceptionsCustomVisitor.getNumIsXMLSyntax();
-            catchBlockInfo.OperationFeatures["IsLoop"] = possibleExceptionsCustomVisitor.getNumIsLoop();
-
+            //catchBlockInfo.OperationFeatures["IsLoop"] = possibleExceptionsCustomVisitor.getNumIsLoop();
+            catchBlockInfo.OperationFeatures["IsThrow"] = possibleExceptionsCustomVisitor.getNumIsThrow();
 
             //var methodAndExceptionList = GetAllInvokedMethodNamesAndExceptionsByBFS(tryBlock.Block, treeAndModelDic, compilation);
 
@@ -1151,6 +1151,25 @@ namespace NTratch
 
             return IsInnerCatch(node.Parent);
             
+        }
+
+        public static SyntaxNode FindParentTry(SyntaxNode node)
+        {
+            //if reach method, constructor and class stop because went too far
+            if (node.IsKind(SyntaxKind.MethodDeclaration) || node.IsKind(SyntaxKind.ConstructorDeclaration) || node.IsKind(SyntaxKind.ClassDeclaration))
+                return null;
+            
+            //if reached catch clause means it can still pop out of the try statement. A catch clause is also a child node of a try statement =(
+            //null here so that it doesnt accuse as parent try
+            //check if there are catch blocks with throw statements
+            if (node.IsKind(SyntaxKind.CatchClause))
+                return null;
+
+            if (node.IsKind(SyntaxKind.TryStatement))
+                return node;
+
+            return FindParentTry(node.Parent);
+
         }
         #endregion CatchClause and binded info analysis
     }

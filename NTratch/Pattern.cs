@@ -134,12 +134,12 @@ namespace NTratch
             OperationFeatures.Add("MethodLine", 0);
             OperationFeatures.Add("MethodLOC", 0);
 
-            MetaInfo.Add("FilePath", "-filepath");
-            MetaInfo.Add("ExceptionType", "-exceptiontype");
-            MetaInfo.Add("ParentType", "-parenttype");
-            MetaInfo.Add("ParentMethod", "-parentmethod");
+            MetaInfo.Add("FilePath", "'-filepath");
+            MetaInfo.Add("ExceptionType", "'-exceptiontype");
+            MetaInfo.Add("ParentType", "'-parenttype");
+            MetaInfo.Add("ParentMethod", "'-parentmethod");
 
-            MetaInfo.Add("TryLine", "-tryline");
+            MetaInfo.Add("TryLine", "'-tryline");
         }
 
         public string PrintFeatures()
@@ -197,13 +197,13 @@ namespace NTratch
             OperationFeatures.Add("Kind", -9);
 
             //Try info
-            MetaInfo.Add("TryBlock", "-tryblock");
+            MetaInfo.Add("TryBlock", "'-tryblock");
             OperationFeatures.Add("ParentNodeType", 0);
-            MetaInfo.Add("ParentNodeType", "-parentnodetype");
+            MetaInfo.Add("ParentNodeType", "'-parentnodetype");
 
             //Try Visitor items:
             OperationFeatures.Add("RecoverFlag", 0);
-            MetaInfo.Add("RecoverFlag", "-recoverflag");
+            MetaInfo.Add("RecoverFlag", "'-recoverflag");
             OperationFeatures.Add("InnerCatch", 0);
             OperationFeatures.Add("ParentTryStartLine", 0);
 
@@ -215,40 +215,41 @@ namespace NTratch
             OperationFeatures.Add("GetCause", 0);
             OperationFeatures.Add("OtherInvocation", 0);
 
-            MetaInfo.Add("Logged", "-logged");
-            MetaInfo.Add("Abort", "-abort");
-            MetaInfo.Add("Default", "-default");
-            MetaInfo.Add("GetCause", "-getcause");
-            MetaInfo.Add("OtherInvocation", "-otherinvocation");
+            MetaInfo.Add("Logged", "'-logged");
+            MetaInfo.Add("Abort", "'-abort");
+            MetaInfo.Add("Default", "'-default");
+            MetaInfo.Add("GetCause", "'-getcause");
+            MetaInfo.Add("OtherInvocation", "'-otherinvocation");
 
             //Throw visitor
             OperationFeatures.Add("NumThrown", 0);
-            MetaInfo.Add("Thrown", "-thrown");
+            MetaInfo.Add("Thrown", "'-thrown");
             OperationFeatures.Add("NumThrowNew", 0);
             OperationFeatures.Add("NumThrowWrapCurrentException", 0);
 
             //Other specific visitors:
             OperationFeatures.Add("Return", 0);
             OperationFeatures.Add("Continue", 0);
-            MetaInfo.Add("Return", "-return");
-            MetaInfo.Add("Continue", "-continue");
+            MetaInfo.Add("Return", "'-return");
+            MetaInfo.Add("Continue", "'-continue");
 
             //Some catch block info
             OperationFeatures.Add("EmptyBlock", 0);
             OperationFeatures.Add("CatchException", -9);
 
             //Finally block items, if existing
-            MetaInfo.Add("FinallyBlock", "-finallyblock");
+            MetaInfo.Add("FinallyBlock", "'-finallyblock");
             OperationFeatures.Add("FinallyThrowing", 0);
 
             //Binding based info:
-            MetaInfo.Add("TryMethods", "-trymethods");
-            MetaInfo.Add("TryMethodsAndExceptions", "-trymethodsandexceptions");
+            MetaInfo.Add("TryMethods", "'-trymethods");
+            MetaInfo.Add("TryMethodsAndExceptions", "'-trymethodsandexceptions");
 
             OperationFeatures.Add("NumMethod", 0);
-            MetaInfo.Add("TryMethodsBinded", "-trymethodsbinded");
+            MetaInfo.Add("TryMethodsBinded", "'-trymethodsbinded");
             OperationFeatures.Add("NumMethodsNotBinded", 0);
 
+            MetaInfo.Add("DistinctExceptions", "'DistinctExceptions");
             OperationFeatures.Add("NumDistinctExceptions", 0);
 
             OperationFeatures.Add("NumSpecificHandler", 0);
@@ -259,18 +260,19 @@ namespace NTratch
             OperationFeatures.Add("MaxLevel", 0);
             OperationFeatures.Add("IsXMLSemantic", 0);
             OperationFeatures.Add("IsXMLSyntax", 0);
-            OperationFeatures.Add("IsLoop", 0);
+            //OperationFeatures.Add("IsLoop", 0);
+            OperationFeatures.Add("IsThrow", 0);
 
             //Comments info - not in the Catch Visitor
             OperationFeatures.Add("ToDo", 0);
-            MetaInfo.Add("CatchBlock", "-catchblock");
+            MetaInfo.Add("CatchBlock", "'-catchblock");
 
 
             /* // Not in Use right now:
             OperationFeatures.Add("SetLogicFlag", 0);
-            MetaInfo.Add("SetLogicFlag", "-setlogicflag");
+            MetaInfo.Add("SetLogicFlag", "'-setlogicflag");
             OperationFeatures.Add("OtherOperation", 0);
-            MetaInfo.Add("OtherOperation", "-otheroperation");
+            MetaInfo.Add("OtherOperation", "'-otheroperation");
             */
 
             MetaKeys = MetaInfo.Keys.ToList();
@@ -383,7 +385,7 @@ namespace NTratch
 
             csvSW.WriteLine("ID," + OpFeaturesKey + "ExceptionType,ParentMethod,ParentType,FilePath");
             metaSW.WriteLine(metaKey);
-            metaSW.WriteLine("--------------------------------------------------------");
+            metaSW.WriteLine("'--------------------------------------------------------");
             metaSW.WriteLine("NumExceptionType: {0}, NumCatchBlock: {1}, NumLogged: {2}, "
                     + "NumThrown: {3}, NumLoggedAndThrown: {4}, NumLoggedNotThrown: {5}.",
                     this.Count,
@@ -396,7 +398,7 @@ namespace NTratch
 
             foreach (string exception in this.Keys)
             {
-                metaSW.WriteLine("--------------------------------------------------------");
+                metaSW.WriteLine("'--------------------------------------------------------");
                 CatchList catchList = this[exception];
                 metaSW.WriteLine("Exception Type [{0}]: NumCatchBlock: {1}, NumLogged: {2}, "
                         + "NumThrown: {3}, NumLoggedAndThrown: {4}, NumLoggedNotThrown: {5}.",
@@ -423,7 +425,7 @@ namespace NTratch
             }
 
             //Print summary
-            metaSW.WriteLine("------------------------ Summary -------------------------");
+            metaSW.WriteLine("'------------------------ Summary -------------------------");
             metaSW.WriteLine("{0}\t{1}\t{2}\t{3}\t{4}\t{5}",
                     "Exception Type",
                     "NumCatch",
