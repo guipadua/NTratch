@@ -15,7 +15,7 @@ namespace NTratch.test
             {
                 m1(); // possible exceptions: COMException, and 5 from System method GetFullPath: PathTooLongException, ArgumentException, SecurityException, ArgumentNullException, NotSupportedException
                 m2(); // possible exceptions: AccessViolationException, IOException
-                m3(); // possible exceptions: NotImplementedException
+                m3(-5); // possible exceptions: NotImplementedException
                 m30(); // pe: ---   none, it gets swallowed
             }
             catch (PathTooLongException ex)
@@ -72,8 +72,11 @@ namespace NTratch.test
                 // I will tell mama if you do that again 
             }
         }
-        private void m3()
+        private int m3(int x)
         {
+            if (x > 0) { return x; };
+            return m3(x + 1);
+
             throw new NotImplementedException();
         }
     }

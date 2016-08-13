@@ -398,7 +398,7 @@ namespace NTratch
             //var containingMethod = GetContainingMethodName(tryBlock, model);
             //var methodNameList = GetAllInvokedMethodNamesByBFS(tryBlock.Block, treeAndModelDic, compilation);
 
-            var possibleExceptionsCustomVisitor = new PossibleExceptionsCustomVisitor(ref exceptionNamedTypeSymbol, ref treeAndModelDic, ref compilation, true);
+            var possibleExceptionsCustomVisitor = new PossibleExceptionsCustomVisitor(ref exceptionNamedTypeSymbol, ref treeAndModelDic, ref compilation, true, 0);
             possibleExceptionsCustomVisitor.Visit(tryBlock.Block);
 
             //catchBlockInfo.MetaInfo["TryMethods"] = possibleExceptionsCustomVisitor.PrintInvokedMethodsHandlerType();

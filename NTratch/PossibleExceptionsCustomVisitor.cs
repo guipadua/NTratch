@@ -29,7 +29,11 @@ namespace NTratch
         private int m_visitorMaxLevel = 0;
         private int m_nodeMaxLevel = 0;
 
-        private bool isCounted = false;
+        private int m_myLevel = 0;
+        private sbyte m_highestChildNodeLevel = 0;
+        private Dictionary<string, int> m_ChildrenNodesLevel = new Dictionary<string, int>();
+
+        private bool m_hasVisitedNode = false;
 
         private int numMethodsNotBinded = 0;
 
@@ -39,12 +43,13 @@ namespace NTratch
         /// Constructor
         /// </summary>
         /// <param name="p_isForAnalysis">This is know if the found exceptions should be evaluated against the parent try-catch block, if any.</param>
-        public PossibleExceptionsCustomVisitor(ref INamedTypeSymbol p_exceptionType, ref Dictionary<SyntaxTree, SemanticModel> p_treeAndModelDic, ref Compilation p_compilation, bool p_isForAnalysis)
+        public PossibleExceptionsCustomVisitor(ref INamedTypeSymbol p_exceptionType, ref Dictionary<SyntaxTree, SemanticModel> p_treeAndModelDic, ref Compilation p_compilation, bool p_isForAnalysis, int p_level)
         {
             m_exceptionType = p_exceptionType;
             m_compilation = p_compilation;
             m_treeAndModelDic = p_treeAndModelDic;
-            m_isForAnalysis = p_isForAnalysis;            
+            m_isForAnalysis = p_isForAnalysis;
+            m_myLevel = p_level;            
         }
 
         public override void VisitInvocationExpression(InvocationExpressionSyntax node)
@@ -177,38 +182,44 @@ namespace NTratch
 
         private void processExpressionNodeAndVisit(SyntaxNode node)
         {
-
-            m_nodeMaxLevel = 1;
-            
             //Go get exceptions based on sematinc and syntax documentation + declaration loop
             BaseMethodDeclarationSyntax nodemDeclar = null;
             var nodePossibleExceptions = new Dictionary<string, Dictionary<string, sbyte>>();
             var nodeString = processExpressionNode(node, ref nodePossibleExceptions, ref nodemDeclar);
 
-            //Go get exceptions based on visiting declarations - recursive way
-            if (nodemDeclar != null)
+            if (!m_invokedMethodsPossibleExceptions.ContainsKey(nodeString))
             {
-                var possibleExceptionsCustomVisitor = new PossibleExceptionsCustomVisitor(ref m_exceptionType, ref m_treeAndModelDic, ref m_compilation, false);
-                possibleExceptionsCustomVisitor.Visit(nodemDeclar);
-                MergePossibleExceptionsDic(ref nodePossibleExceptions, possibleExceptionsCustomVisitor.m_possibleExceptions);
 
-                m_nodeMaxLevel = possibleExceptionsCustomVisitor.m_visitorMaxLevel;
-               
+
+
+                m_ChildrenNodesLevel.Add(nodeString, 1);
+
+                //Go get exceptions based on visiting declarations - recursive way
+                if (nodemDeclar != null)
+                {
+                    var possibleExceptionsCustomVisitor = new PossibleExceptionsCustomVisitor(ref m_exceptionType, ref m_treeAndModelDic, ref m_compilation, false, m_myLevel + 1);
+                    possibleExceptionsCustomVisitor.Visit(nodemDeclar);
+                    MergePossibleExceptionsDic(ref nodePossibleExceptions, possibleExceptionsCustomVisitor.m_possibleExceptions);
+
+                    m_ChildrenNodesLevel[nodeString] = m_ChildrenNodesLevel[nodeString] + possibleExceptionsCustomVisitor.getMaxLevel();
+
+
+                }
+
+
+                //If this is not in the level to expose the exceptions for analysis, validate if they are really coming out or not
+                var nodeAndNodePossibleExceptions = new Dictionary<string, Dictionary<string, Dictionary<string, sbyte>>>();
+                var validPossibleExceptions = new Dictionary<string, Dictionary<string, sbyte>>();
+
+                if (!m_isForAnalysis)
+                    validPossibleExceptions = getValidPossibleExceptions(node, nodePossibleExceptions);
+                else
+                    validPossibleExceptions = nodePossibleExceptions;
+
+                MergePossibleExceptionsDic(ref m_possibleExceptions, validPossibleExceptions);
+                nodeAndNodePossibleExceptions.Add(nodeString, validPossibleExceptions);
+                CodeAnalyzer.MergeDic(ref m_invokedMethodsPossibleExceptions, nodeAndNodePossibleExceptions);
             }
-
-            
-            //If this is not in the level to expose the exceptions for analysis, validate if they are really coming out or not
-            var nodeAndNodePossibleExceptions = new Dictionary<string, Dictionary<string, Dictionary<string, sbyte>>>();
-            var validPossibleExceptions = new Dictionary<string, Dictionary<string, sbyte>>();
-
-            if (!m_isForAnalysis)
-                validPossibleExceptions = getValidPossibleExceptions(node, nodePossibleExceptions);
-            else
-                validPossibleExceptions = nodePossibleExceptions;
-
-            MergePossibleExceptionsDic(ref m_possibleExceptions, validPossibleExceptions);
-            nodeAndNodePossibleExceptions.Add(nodeString, validPossibleExceptions);
-            CodeAnalyzer.MergeDic(ref m_invokedMethodsPossibleExceptions, nodeAndNodePossibleExceptions);
         }
 
         private string processExpressionNode(SyntaxNode p_node, ref Dictionary<string, Dictionary<string, sbyte>> p_nodePossibleExceptions, ref BaseMethodDeclarationSyntax p_nodemDeclar)
@@ -693,7 +704,7 @@ namespace NTratch
 
         internal int getMaxLevel()
         {
-            return m_visitorMaxLevel;
+            return (m_ChildrenNodesLevel.Values.Count > 0) ? m_ChildrenNodesLevel.Values.Max() : 0;
         }
 
 
