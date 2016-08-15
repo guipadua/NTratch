@@ -143,6 +143,7 @@
   <ItemGroup>
     <Compile Include="CodeAnalyzer.cs" />
     <Compile Include="CodeWalker.cs" />
+    <Compile Include="MyMethod.cs" />
     <Compile Include="Pattern.cs" />
     <Compile Include="PossibleExceptionsCustomVisitor.cs" />
     <Compile Include="Program.cs" />

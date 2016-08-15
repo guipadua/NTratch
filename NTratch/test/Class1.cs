@@ -15,7 +15,7 @@ namespace NTratch.test
             {
                 m1(); // possible exceptions: COMException, and 5 from System method GetFullPath: PathTooLongException, ArgumentException, SecurityException, ArgumentNullException, NotSupportedException
                 m2(); // possible exceptions: AccessViolationException, IOException
-                m3(-5); // possible exceptions: NotImplementedException
+                m3(-105); // possible exceptions: NotImplementedException
                 m30(); // pe: ---   none, it gets swallowed
             }
             catch (PathTooLongException ex)

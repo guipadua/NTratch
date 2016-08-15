@@ -182,44 +182,44 @@ namespace NTratch
 
         private void processExpressionNodeAndVisit(SyntaxNode node)
         {
-            //Go get exceptions based on sematinc and syntax documentation + declaration loop
+            //Go get exceptions based on semantic and syntax documentation + declaration loop
             BaseMethodDeclarationSyntax nodemDeclar = null;
             var nodePossibleExceptions = new Dictionary<string, Dictionary<string, sbyte>>();
             var nodeString = processExpressionNode(node, ref nodePossibleExceptions, ref nodemDeclar);
 
-            if (!m_invokedMethodsPossibleExceptions.ContainsKey(nodeString))
+            m_ChildrenNodesLevel.Add(nodeString, 1);
+
+            //Go get exceptions based on visiting declarations - recursive way - if not yet visited
+            if (nodemDeclar != null && !CodeAnalyzer.AllMyMethods[nodeString].IsVisited)
             {
+                CodeAnalyzer.AllMyMethods[nodeString].IsVisited = true;
 
-
-
-                m_ChildrenNodesLevel.Add(nodeString, 1);
-
-                //Go get exceptions based on visiting declarations - recursive way
-                if (nodemDeclar != null)
-                {
-                    var possibleExceptionsCustomVisitor = new PossibleExceptionsCustomVisitor(ref m_exceptionType, ref m_treeAndModelDic, ref m_compilation, false, m_myLevel + 1);
-                    possibleExceptionsCustomVisitor.Visit(nodemDeclar);
-                    MergePossibleExceptionsDic(ref nodePossibleExceptions, possibleExceptionsCustomVisitor.m_possibleExceptions);
-
-                    m_ChildrenNodesLevel[nodeString] = m_ChildrenNodesLevel[nodeString] + possibleExceptionsCustomVisitor.getMaxLevel();
-
-
-                }
-
-
-                //If this is not in the level to expose the exceptions for analysis, validate if they are really coming out or not
-                var nodeAndNodePossibleExceptions = new Dictionary<string, Dictionary<string, Dictionary<string, sbyte>>>();
-                var validPossibleExceptions = new Dictionary<string, Dictionary<string, sbyte>>();
-
-                if (!m_isForAnalysis)
-                    validPossibleExceptions = getValidPossibleExceptions(node, nodePossibleExceptions);
-                else
-                    validPossibleExceptions = nodePossibleExceptions;
-
-                MergePossibleExceptionsDic(ref m_possibleExceptions, validPossibleExceptions);
-                nodeAndNodePossibleExceptions.Add(nodeString, validPossibleExceptions);
-                CodeAnalyzer.MergeDic(ref m_invokedMethodsPossibleExceptions, nodeAndNodePossibleExceptions);
+                var possibleExceptionsCustomVisitor = new PossibleExceptionsCustomVisitor(ref m_exceptionType, ref m_treeAndModelDic, ref m_compilation, false, m_myLevel + 1);
+                possibleExceptionsCustomVisitor.Visit(nodemDeclar);
+                
+                CodeAnalyzer.AllMyMethods[nodeString].Exceptions = possibleExceptionsCustomVisitor.m_possibleExceptions;
+                CodeAnalyzer.AllMyMethods[nodeString].ChildrenMaxLevel = possibleExceptionsCustomVisitor.getChildrenMaxLevel();
             }
+
+            //check my methods to get the previously stored exceptions
+            if (CodeAnalyzer.AllMyMethods.ContainsKey(nodeString))
+            {
+                MergePossibleExceptionsDic(ref nodePossibleExceptions, CodeAnalyzer.AllMyMethods[nodeString].Exceptions);
+                m_ChildrenNodesLevel[nodeString] = m_ChildrenNodesLevel[nodeString] + CodeAnalyzer.AllMyMethods[nodeString].ChildrenMaxLevel;
+            }
+            
+            //If this is not in the level to expose the exceptions for analysis, validate if they are really coming out or not
+            var nodeAndNodePossibleExceptions = new Dictionary<string, Dictionary<string, Dictionary<string, sbyte>>>();
+            var validPossibleExceptions = new Dictionary<string, Dictionary<string, sbyte>>();
+
+            if (!m_isForAnalysis)
+                validPossibleExceptions = getValidPossibleExceptions(node, nodePossibleExceptions);
+            else
+                validPossibleExceptions = nodePossibleExceptions;
+
+            MergePossibleExceptionsDic(ref m_possibleExceptions, validPossibleExceptions);
+            nodeAndNodePossibleExceptions.Add(nodeString, validPossibleExceptions);
+            CodeAnalyzer.MergeDic(ref m_invokedMethodsPossibleExceptions, nodeAndNodePossibleExceptions);            
         }
 
         private string processExpressionNode(SyntaxNode p_node, ref Dictionary<string, Dictionary<string, sbyte>> p_nodePossibleExceptions, ref BaseMethodDeclarationSyntax p_nodemDeclar)
@@ -257,9 +257,9 @@ namespace NTratch
             // Checking for Binding (Semantic) information - END
 
             //Get the declaration for this node (Syntax) - BEGIN
-            if (CodeAnalyzer.AllMethodDeclarations.ContainsKey(nodeString))
+            if (CodeAnalyzer.AllMyMethods.ContainsKey(nodeString))
             {
-                p_nodemDeclar = CodeAnalyzer.AllMethodDeclarations[nodeString];
+                p_nodemDeclar = CodeAnalyzer.AllMyMethods[nodeString].Declaration;
             }
             //Get the declaration for this node (Syntax) - BEGIN
 
@@ -317,8 +317,15 @@ namespace NTratch
                 p_PossibleExceptions.Add(p_exceptionTypeName, BaseDicWithHandlerType(p_exceptionTypeName));
 
             p_PossibleExceptions[p_exceptionTypeName][p_originKey] = 1;
+
+            int previousDeepestLevel = Convert.ToInt16(p_PossibleExceptions[p_exceptionTypeName]["DeepestLevelFound"]);
+            int currentDeepestLevel = Convert.ToInt16(m_myLevel);
+
+            if (currentDeepestLevel > previousDeepestLevel)
+                p_PossibleExceptions[p_exceptionTypeName]["DeepestLevelFound"] = Convert.ToSByte(currentDeepestLevel);
+
         }
-        
+
         private Dictionary<string, sbyte> BaseDicWithHandlerType (string exceptionTypeName)
         {
             //Default value definition for when coming from XML Semantics
@@ -328,7 +335,8 @@ namespace NTratch
             dicXmlFromSemantic.Add("IsXMLSyntax", 0);
             dicXmlFromSemantic.Add("IsLoop", 0);
             dicXmlFromSemantic.Add("IsThrow", 0);
-
+            dicXmlFromSemantic.Add("DeepestLevelFound", 0);
+            
             dicXmlFromSemantic["HandlerTypeCode"] = GetHandlerTypeCode(m_exceptionType, exceptionTypeName);
 
             return dicXmlFromSemantic;
@@ -428,10 +436,10 @@ namespace NTratch
                             //if (level > 3) continue; // only go backward to 3 levels
                             if (methodName.StartsWith("System")) continue; // System API
 
-                            if (symbolQueue != null && CodeAnalyzer.AllMethodDeclarations.ContainsKey(symbolQueue.ToString()))
+                            if (symbolQueue != null && CodeAnalyzer.AllMyMethods.ContainsKey(symbolQueue.ToString()))
                             {
                                 // find the method declaration (go to definition)
-                                var mdeclar = CodeAnalyzer.AllMethodDeclarations[symbolQueue.ToString()];
+                                var mdeclar = CodeAnalyzer.AllMyMethods[symbolQueue.ToString()].Declaration;
                                 codeSnippetQueue.Enqueue(new Tuple<SyntaxNode, int>(mdeclar, level + 1));
                             }
                         }
@@ -479,10 +487,10 @@ namespace NTratch
                             //if (level > 3) continue; // only go backward to 3 levels
                             if (methodName.StartsWith("System")) continue; // System API
 
-                            if (symbolQueue != null && CodeAnalyzer.AllMethodDeclarations.ContainsKey(symbolQueue.ToString()))
+                            if (symbolQueue != null && CodeAnalyzer.AllMyMethods.ContainsKey(symbolQueue.ToString()))
                             {
                                 // find the method declaration (go to definition)
-                                var mdeclar = CodeAnalyzer.AllMethodDeclarations[symbolQueue.ToString()];
+                                var mdeclar = CodeAnalyzer.AllMyMethods[symbolQueue.ToString()].Declaration;
                                 codeSnippetQueue.Enqueue(new Tuple<SyntaxNode, int>(mdeclar, level + 1));
                             }
                         }
@@ -702,7 +710,7 @@ namespace NTratch
         }
 
 
-        internal int getMaxLevel()
+        internal int getChildrenMaxLevel()
         {
             return (m_ChildrenNodesLevel.Values.Count > 0) ? m_ChildrenNodesLevel.Values.Max() : 0;
         }

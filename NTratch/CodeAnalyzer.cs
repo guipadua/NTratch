@@ -13,8 +13,9 @@ namespace NTratch
     static class CodeAnalyzer
     {
         public static TryStatementRemover tryblockremover = new TryStatementRemover();
-        public static Dictionary<string, BaseMethodDeclarationSyntax> AllMethodDeclarations =
-            new Dictionary<string, BaseMethodDeclarationSyntax>();
+        public static Dictionary<string, MyMethod> AllMyMethods =
+            new Dictionary<string, MyMethod>();
+        
 
         #region Tree Analysis
         /// <summary>
@@ -35,7 +36,7 @@ namespace NTratch
                 .Select(tree => GetAllMethodDeclarations(tree, treeAndModelDic, compilation));
             foreach (var methoddeclar in allMethodDeclarations)
             {
-                MergeDic(ref AllMethodDeclarations, methoddeclar);
+                MergeDic(ref AllMyMethods, methoddeclar);
             }
             Logger.Log("Cached all method declarations.");
 
@@ -418,7 +419,7 @@ namespace NTratch
             catchBlockInfo.OperationFeatures["NumSupersumptionHandler"] = possibleExceptionsCustomVisitor.getNumSupersumptionHandler();
             catchBlockInfo.OperationFeatures["NumOtherHandler"] = possibleExceptionsCustomVisitor.getNumOtherHandler();
 
-            catchBlockInfo.OperationFeatures["MaxLevel"] = possibleExceptionsCustomVisitor.getMaxLevel();
+            catchBlockInfo.OperationFeatures["MaxLevel"] = possibleExceptionsCustomVisitor.getChildrenMaxLevel();
             catchBlockInfo.OperationFeatures["IsXMLSemantic"] = possibleExceptionsCustomVisitor.getNumIsXMLSemantic();
             catchBlockInfo.OperationFeatures["IsXMLSyntax"] = possibleExceptionsCustomVisitor.getNumIsXMLSyntax();
             //catchBlockInfo.OperationFeatures["IsLoop"] = possibleExceptionsCustomVisitor.getNumIsLoop();
@@ -441,10 +442,10 @@ namespace NTratch
             return catchBlockInfo;
         }
 
-        public static Dictionary<string, BaseMethodDeclarationSyntax> GetAllMethodDeclarations(SyntaxTree tree,
+        public static Dictionary<string, MyMethod> GetAllMethodDeclarations(SyntaxTree tree,
             Dictionary<SyntaxTree, SemanticModel> treeAndModelDic, Compilation compilation)
         {
-            var allMethodDeclarations = new Dictionary<string, BaseMethodDeclarationSyntax>();
+            var allMethodDeclarations = new Dictionary<string, MyMethod>();
 
             var root = tree.GetRoot();
             var methodDeclarList = root.DescendantNodes().OfType<BaseMethodDeclarationSyntax>();
@@ -470,7 +471,7 @@ namespace NTratch
                     var methodDeclaration = methodSymbol.ToString();
                     if (methodDeclaration != null && !allMethodDeclarations.ContainsKey(methodDeclaration))
                     {
-                        allMethodDeclarations.Add(methodDeclaration, method);
+                        allMethodDeclarations.Add(methodDeclaration, new MyMethod(methodDeclaration, method));
                     }
                 }
             }
