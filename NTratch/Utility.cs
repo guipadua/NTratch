@@ -112,7 +112,7 @@ namespace NTratch
 
         public static string CompleteFileNameOutput(string tail)
         {
-            return (OutputFolderPath + "\\" + OutputFolderPath.Split('\\').Last() + "_" + tail);
+            return (OutputFolderPath + "\\" + InputFolderPath.Split('\\').Last() + "_" + tail);
         }
         
 
