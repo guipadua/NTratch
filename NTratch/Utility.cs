@@ -14,7 +14,7 @@ namespace NTratch
         static StreamWriter LogWriter;
         public static void Initialize()
         {
-            LogFileName = IOFile.CompleteFileName(
+            LogFileName = IOFile.CompleteFileNameOutput(
                 DateTime.Today.Date.ToShortDateString().Replace("/", "") + ".log");
             LogWriter = File.AppendText(LogFileName);
             Log("-------------------------------------------------------");
@@ -102,12 +102,19 @@ namespace NTratch
     /// </summary>
     static class IOFile
     {
-        public static string FolderPath;
+        public static string InputFolderPath;
+        public static string OutputFolderPath;
        
-        public static string CompleteFileName(string tail)
+        public static string CompleteFileNameInput(string tail)
         {
-            return (FolderPath + "\\" + FolderPath.Split('\\').Last() + "_" + tail);
+            return (InputFolderPath + "\\" + InputFolderPath.Split('\\').Last() + "_" + tail);
         }
+
+        public static string CompleteFileNameOutput(string tail)
+        {
+            return (OutputFolderPath + "\\" + OutputFolderPath.Split('\\').Last() + "_" + tail);
+        }
+        
 
         static public string DeleteSpace(string str)
         {

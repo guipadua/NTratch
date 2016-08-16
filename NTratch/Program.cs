@@ -13,12 +13,16 @@ namespace NTratch
             {
                 filePath = filePath.Remove(filePath.LastIndexOf('\\'));
             }
-            IOFile.FolderPath = Path.GetFullPath(filePath);
+            IOFile.InputFolderPath = Path.GetFullPath(filePath);
+            IOFile.OutputFolderPath = Directory.GetCurrentDirectory();
             
             Logger.Initialize();
-            DateTime StartTime = DateTime.Now;          
-           
-            Config.Load(IOFile.CompleteFileName("Config.txt"));
+            DateTime StartTime = DateTime.Now;
+
+            Logger.Log("Current directory is: " + IOFile.OutputFolderPath.ToString());
+
+
+            Config.Load(IOFile.CompleteFileNameInput("Config.txt"));
 
             // traverse all the code folder for pattern check
             CodeWalker walker = new CodeWalker();

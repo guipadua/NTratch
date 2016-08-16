@@ -57,7 +57,7 @@ namespace NTratch
                 {
                     sb.Append(stat.Item1.GetText());
                 }
-                string txtFilePath = IOFile.CompleteFileName("AllSource.txt");
+                string txtFilePath = IOFile.CompleteFileNameOutput("AllSource.txt");
                 using (StreamWriter sw = new StreamWriter(txtFilePath))
                 {
                     sw.Write(sb.ToString());

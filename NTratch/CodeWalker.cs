@@ -24,7 +24,7 @@ namespace NTratch
             appReflist.Add(mscorlib);
             //mscorlib.
             // Find all the application API dll references files
-            IEnumerable<string> appLibFiles = Directory.EnumerateFiles(IOFile.FolderPath,
+            IEnumerable<string> appLibFiles = Directory.EnumerateFiles(IOFile.InputFolderPath,
                 "*.dll", SearchOption.AllDirectories);
             foreach (var libFile in appLibFiles)
             {   
@@ -131,7 +131,7 @@ namespace NTratch
 
         public static void LoadByTxtFile(string folderPath)
         {
-            string txtFilePath = IOFile.CompleteFileName("AllSource.txt");
+            string txtFilePath = IOFile.CompleteFileNameInput("AllSource.txt");
             Logger.Log("Load from txt file: " + txtFilePath);
 
             string content = "";

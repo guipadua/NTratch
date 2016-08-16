@@ -365,9 +365,9 @@ namespace NTratch
         public void PrintToFile()
         {
             Logger.Log("Writing CatchBlock features into file...");
-            StreamWriter sw = new StreamWriter(IOFile.CompleteFileName("CatchBlock.txt"));
-            StreamWriter metaSW = new StreamWriter(IOFile.CompleteFileName("CatchBlock_Meta.txt"));
-            StreamWriter csvSW = new StreamWriter(IOFile.CompleteFileName("CatchBlock.csv"));
+            StreamWriter sw = new StreamWriter(IOFile.CompleteFileNameOutput("CatchBlock.txt"));
+            StreamWriter metaSW = new StreamWriter(IOFile.CompleteFileNameOutput("CatchBlock_Meta.txt"));
+            StreamWriter csvSW = new StreamWriter(IOFile.CompleteFileNameOutput("CatchBlock.csv"));
 
             int catchId = 0;
 
