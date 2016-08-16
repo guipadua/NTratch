@@ -288,7 +288,7 @@ namespace NTratch
             if (IsInnerCatch(catchblock.Parent))
             {
                 catchBlockInfo.OperationFeatures["InnerCatch"] =  1;
-                catchBlockInfo.OperationFeatures["ParentTryStartLine"] = tree.GetLineSpan((catchblock.Parent.Parent.Parent.Parent as TryStatementSyntax).Block.Span).StartLinePosition.Line + 1;// tree.getLineNumber(node.getParent().getParent().getParent().getParent().getStartPosition() + 1));
+                catchBlockInfo.OperationFeatures["ParentTryStartLine"] = tree.GetLineSpan((FindParentCatch(catchblock.Parent).Parent as TryStatementSyntax).Block.Span).StartLinePosition.Line + 1;// tree.getLineNumber(node.getParent().getParent().getParent().getParent().getStartPosition() + 1));
             }
 
             //Treatment for MethodInvocation
@@ -1172,6 +1172,20 @@ namespace NTratch
             return FindParentTry(node.Parent);
 
         }
+
+        public static SyntaxNode FindParentCatch(SyntaxNode node)
+        {
+            //if reach method, constructor and class stop because went too far
+            if (node.IsKind(SyntaxKind.MethodDeclaration) || node.IsKind(SyntaxKind.ConstructorDeclaration) || node.IsKind(SyntaxKind.ClassDeclaration))
+                return null;
+
+            if (node.IsKind(SyntaxKind.CatchClause))
+                return node;
+            
+            return FindParentCatch(node.Parent);
+
+        }
+
         #endregion CatchClause and binded info analysis
     }
 }
