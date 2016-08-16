@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
-VisualStudioVersion = 14.0.25123.0
+VisualStudioVersion = 14.0.25420.1
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NTratch", "NTratch\NTratch.csproj", "{B69E3D2D-28E5-4686-B619-0238AC020BCE}"
 EndProject
@@ -23,7 +23,8 @@ Global
 		{B69E3D2D-28E5-4686-B619-0238AC020BCE}.Debug|x86.Build.0 = Debug|x86
 		{B69E3D2D-28E5-4686-B619-0238AC020BCE}.Release|Mixed Platforms.ActiveCfg = Release|x86
 		{B69E3D2D-28E5-4686-B619-0238AC020BCE}.Release|Mixed Platforms.Build.0 = Release|x86
-		{B69E3D2D-28E5-4686-B619-0238AC020BCE}.Release|x64.ActiveCfg = Release|x86
+		{B69E3D2D-28E5-4686-B619-0238AC020BCE}.Release|x64.ActiveCfg = Release|x64
+		{B69E3D2D-28E5-4686-B619-0238AC020BCE}.Release|x64.Build.0 = Release|x64
 		{B69E3D2D-28E5-4686-B619-0238AC020BCE}.Release|x86.ActiveCfg = Release|x86
 		{B69E3D2D-28E5-4686-B619-0238AC020BCE}.Release|x86.Build.0 = Release|x86
 	EndGlobalSection
