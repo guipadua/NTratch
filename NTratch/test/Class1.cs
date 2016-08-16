@@ -15,7 +15,9 @@ namespace NTratch.test
             {
                 m1(); // possible exceptions: COMException, and 5 from System method GetFullPath: PathTooLongException, ArgumentException, SecurityException, ArgumentNullException, NotSupportedException
                 m2(); // possible exceptions: AccessViolationException, IOException
+                m2(); // possible exceptions: AccessViolationException, IOException
                 m3(-105); // possible exceptions: NotImplementedException
+                m2(); // possible exceptions: AccessViolationException, IOException
                 m30(); // pe: ---   none, it gets swallowed
             }
             catch (PathTooLongException ex)
@@ -33,6 +35,8 @@ namespace NTratch.test
             Path.GetFullPath("I'm toooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo long for Windows File System to handle.");
         }
 
+
+        /// <exception cref="System.Runtime.InteropServices.COMException">Always throw.</exception>
         public void m20()
         {
             m500();

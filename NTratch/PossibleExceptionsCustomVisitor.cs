@@ -26,14 +26,10 @@ namespace NTratch
 
         private Dictionary<string, Dictionary<string, sbyte>> m_possibleExceptions = new Dictionary<string, Dictionary<string, sbyte>>();
 
-        private int m_visitorMaxLevel = 0;
         private int m_nodeMaxLevel = 0;
 
         private int m_myLevel = 0;
-        private sbyte m_highestChildNodeLevel = 0;
         private Dictionary<string, int> m_ChildrenNodesLevel = new Dictionary<string, int>();
-
-        private bool m_hasVisitedNode = false;
 
         private int numMethodsNotBinded = 0;
 
@@ -110,15 +106,26 @@ namespace NTratch
                 }
                 else
                 {
-                    foreach (var value in exceptionValues.Value)
+                    foreach (var value in exceptionValues.Value.ToList())
                     {
-                        if (value.Key != "HandlerTypeCode")
+                        int previousValue = Convert.ToInt16(dicReceiver[exceptionValues.Key][value.Key]);
+                        int currentValue = Convert.ToInt16(value.Value);
+                        int result = -99;
+
+                        if (value.Key != "HandlerTypeCode" && value.Key != "DeepestLevelFound")
                         {
-                            dicReceiver[exceptionValues.Key][value.Key] = Convert.ToSByte(Convert.ToInt16(dicReceiver[exceptionValues.Key][value.Key])
-                                                                            + Convert.ToInt16(value.Value));
-                            if (dicReceiver[exceptionValues.Key][value.Key] > 1)
-                                dicReceiver[exceptionValues.Key][value.Key] = 1;
+                            result = previousValue + currentValue;
+
+                            if (result > 1)
+                                result = 1;
                         }
+                        if (value.Key == "DeepestLevelFound")
+                        {
+                            if (currentValue > previousValue)
+                                result = currentValue;
+                        }
+                        if (result != -99)
+                            dicReceiver[exceptionValues.Key][value.Key] = Convert.ToSByte(result);
                     }
                 }
             }
@@ -182,13 +189,43 @@ namespace NTratch
 
         private void processExpressionNodeAndVisit(SyntaxNode node)
         {
-            //Go get exceptions based on semantic and syntax documentation + declaration loop
-            BaseMethodDeclarationSyntax nodemDeclar = null;
+            
+            var nodeString = "";
             var nodePossibleExceptions = new Dictionary<string, Dictionary<string, sbyte>>();
-            var nodeString = processExpressionNode(node, ref nodePossibleExceptions, ref nodemDeclar);
+            BaseMethodDeclarationSyntax nodemDeclar = null;
+            
+            //Try to get symbol from semantic model
+            var nodeSymbol = GetNodeSymbol(node);
 
-            m_ChildrenNodesLevel.Add(nodeString, 1);
+            //NodeSymbol is not empty it means it's binded and we have semantic info - define nodeString
+            if (nodeSymbol != null)
+            {
+                
+                nodeString = nodeSymbol.ToString();
+                invokedMethodsBinded[nodeString] = 1;
 
+                if (!m_ChildrenNodesLevel.ContainsKey(nodeString))
+                {
+                    m_ChildrenNodesLevel.Add(nodeString, 1);
+                    processNodeForXMLSemantic(node, ref nodeSymbol, ref nodePossibleExceptions);
+                }
+            }
+            else
+            {
+                nodeString = node.ToString();
+                invokedMethodsBinded[nodeString] = 0;
+                numMethodsNotBinded++;
+
+                if (!m_ChildrenNodesLevel.ContainsKey(nodeString))
+                {
+                    m_ChildrenNodesLevel.Add(nodeString, 1);                    
+                }
+            }
+
+            nodemDeclar = GetNodeDeclaration(nodeString);
+            
+            //var nodeString = processExpressionNode(node, ref nodePossibleExceptions, ref nodemDeclar);
+            
             //Go get exceptions based on visiting declarations - recursive way - if not yet visited
             if (nodemDeclar != null && !CodeAnalyzer.AllMyMethods[nodeString].IsVisited)
             {
@@ -196,8 +233,12 @@ namespace NTratch
 
                 var possibleExceptionsCustomVisitor = new PossibleExceptionsCustomVisitor(ref m_exceptionType, ref m_treeAndModelDic, ref m_compilation, false, m_myLevel + 1);
                 possibleExceptionsCustomVisitor.Visit(nodemDeclar);
-                
-                CodeAnalyzer.AllMyMethods[nodeString].Exceptions = possibleExceptionsCustomVisitor.m_possibleExceptions;
+
+                var nodeDeclarExceptions = new Dictionary<string, Dictionary<string, sbyte>>();
+                MergePossibleExceptionsDic(ref nodeDeclarExceptions, GetExceptionsFromXMLSyntax(ref nodemDeclar));
+                MergePossibleExceptionsDic(ref nodeDeclarExceptions, possibleExceptionsCustomVisitor.m_possibleExceptions);
+
+                CodeAnalyzer.AllMyMethods[nodeString].Exceptions = nodeDeclarExceptions;
                 CodeAnalyzer.AllMyMethods[nodeString].ChildrenMaxLevel = possibleExceptionsCustomVisitor.getChildrenMaxLevel();
             }
 
@@ -222,73 +263,81 @@ namespace NTratch
             CodeAnalyzer.MergeDic(ref m_invokedMethodsPossibleExceptions, nodeAndNodePossibleExceptions);            
         }
 
-        private string processExpressionNode(SyntaxNode p_node, ref Dictionary<string, Dictionary<string, sbyte>> p_nodePossibleExceptions, ref BaseMethodDeclarationSyntax p_nodemDeclar)
+        private ISymbol GetNodeSymbol(SyntaxNode p_node)
         {
-            var nodeString = "";
-
             // Checking for Binding (Semantic) information - BEGIN
-            var p_nodeTree = p_node.SyntaxTree;
+            var nodeTree = p_node.SyntaxTree;
 
             // // use a single semantic model
-            var p_nodeModel = m_treeAndModelDic[p_nodeTree];
-            var p_nodeSymbolInfo = p_nodeModel.GetSymbolInfo(p_node);
-            var p_nodeSymbol = p_nodeSymbolInfo.Symbol;
+            var nodeModel = m_treeAndModelDic[nodeTree];
+            var nodeSymbolInfo = nodeModel.GetSymbolInfo(p_node);
+            var nodeSymbol = nodeSymbolInfo.Symbol;
 
             // // recover by using the overall semantic model
-            if (p_nodeSymbol == null)
+            if (nodeSymbol == null)
             {
-                p_nodeModel = m_compilation.GetSemanticModel(p_nodeTree);
-                p_nodeSymbolInfo = p_nodeModel.GetSymbolInfo(p_node);
-                p_nodeSymbol = p_nodeSymbolInfo.Symbol;
+                nodeModel = m_compilation.GetSemanticModel(nodeTree);
+                nodeSymbolInfo = nodeModel.GetSymbolInfo(p_node);
+                nodeSymbol = nodeSymbolInfo.Symbol;
             }
+            
+            return nodeSymbol;
+        }
 
-            // //Flag if binded or not and get the name of the node that will be used
-            if (p_nodeSymbol != null)
+        public BaseMethodDeclarationSyntax GetNodeDeclaration(string p_nodeString)
+        {
+            //Get the declaration for this node (Syntax) - BEGIN
+            if (CodeAnalyzer.AllMyMethods.ContainsKey(p_nodeString))
             {
-                nodeString = p_nodeSymbol.ToString();
-                invokedMethodsBinded[nodeString] = 1;
+                return CodeAnalyzer.AllMyMethods[p_nodeString].Declaration;
             }
             else
-            {
-                nodeString = p_node.ToString();
-                invokedMethodsBinded[nodeString] = 0;
-                numMethodsNotBinded++;
-            }
-            // Checking for Binding (Semantic) information - END
-
-            //Get the declaration for this node (Syntax) - BEGIN
-            if (CodeAnalyzer.AllMyMethods.ContainsKey(nodeString))
-            {
-                p_nodemDeclar = CodeAnalyzer.AllMyMethods[nodeString].Declaration;
-            }
-            //Get the declaration for this node (Syntax) - BEGIN
-
+                return null;
+            
+        }
+        
+        private void processExpressionNode(SyntaxNode p_node, ref Dictionary<string, Dictionary<string, sbyte>> p_nodePossibleExceptions, ref BaseMethodDeclarationSyntax p_nodemDeclar)
+        {
+           
             // Obtaining possible exceptions lists using 3 methods - BEGIN
 
-            // // Exceptions from the XML found on the Semantic model - IsXMLSemantic
-            var xmlTextSemantic = p_nodeSymbol?.GetDocumentationCommentXml();
-            if (xmlTextSemantic == null || xmlTextSemantic == "")
-            {   // // recover by using the overall semantic model
-                xmlTextSemantic = m_compilation.GetSemanticModel(p_nodeTree).GetSymbolInfo(p_node).Symbol?.GetDocumentationCommentXml();
-            }
-            NodeFindExceptionsInXML(xmlTextSemantic, ref p_nodePossibleExceptions, "IsXMLSemantic");
-            
-            // // Exceptions from the XML found on the Syntax model - IsXMLSyntax
-            var xmlTextSyntax = p_nodemDeclar?
-                                    .DescendantTrivia()
-                                    .ToList()
-                                    .FirstOrDefault(trivia => trivia.IsKind(SyntaxKind.SingleLineDocumentationCommentTrivia))
-                                    .ToString();
-            NodeFindExceptionsInXML(xmlTextSyntax, ref p_nodePossibleExceptions, "IsXMLSyntax");
+          
 
             // // Exceptions from throw declarations recursive search - IsLoop
 
             //processIsLoop(ref p_nodemDeclar, ref p_nodePossibleExceptions);
 
             // Obtaining possible exceptions lists using 3 methods - END
-            return nodeString;
+           
         }
-        
+
+        private void processNodeForXMLSemantic(SyntaxNode p_node, ref ISymbol p_nodeSymbol,  ref Dictionary<string, Dictionary<string, sbyte>> p_nodePossibleExceptions)
+        {
+            // // Exceptions from the XML found on the Semantic model - IsXMLSemantic
+            var xmlTextSemantic = p_nodeSymbol.GetDocumentationCommentXml();
+            if (xmlTextSemantic == null || xmlTextSemantic == "")
+            {   // // recover by using the overall semantic model
+                xmlTextSemantic = m_compilation.GetSemanticModel(p_node.SyntaxTree).GetSymbolInfo(p_node).Symbol?.GetDocumentationCommentXml();
+            }
+            NodeFindExceptionsInXML(xmlTextSemantic, ref p_nodePossibleExceptions, "IsXMLSemantic");            
+        }
+
+        private Dictionary<string, Dictionary<string, sbyte>> GetExceptionsFromXMLSyntax(ref BaseMethodDeclarationSyntax p_nodemDeclar)
+        {
+            Dictionary<string, Dictionary<string, sbyte>> nodePossibleExceptions = new Dictionary<string, Dictionary<string, sbyte>>();
+
+            // // Exceptions from the XML found on the Syntax model - IsXMLSyntax
+            var xmlTextSyntax = p_nodemDeclar
+                                    .DescendantTrivia()
+                                    .ToList()
+                                    .FirstOrDefault(trivia => trivia.IsKind(SyntaxKind.SingleLineDocumentationCommentTrivia))
+                                    .ToString();
+            NodeFindExceptionsInXML(xmlTextSyntax, ref nodePossibleExceptions, "IsXMLSyntax");
+
+            return nodePossibleExceptions;
+
+        }
+
         public void NodeFindExceptionsInXML(string xml, ref Dictionary<string, Dictionary<string, sbyte>> p_nodePossibleExceptions, string p_originKey)
         {
             if (xml != null && xml != "")
