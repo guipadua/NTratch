@@ -1060,7 +1060,12 @@ namespace NTratch
                 return -1;
             }
             else
-                return FindKind(exceptionType.BaseType, compilation);
+            {
+                if (exceptionType.BaseType != null)
+                    return FindKind(exceptionType.BaseType, compilation);
+                else
+                    return -2;
+            }
         }
 
         private static SyntaxNode FindParent(SyntaxNode node)
