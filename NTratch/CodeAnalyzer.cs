@@ -1047,15 +1047,16 @@ namespace NTratch
 
         private static int FindKind(INamedTypeSymbol exceptionType, Compilation compilation)
         {
-            if (exceptionType.Equals(compilation.GetTypeByMetadataName("System.SystemException")) || exceptionType.Equals(compilation.GetTypeByMetadataName("System.ApplicationException")))
+            if (exceptionType.Equals(compilation.GetTypeByMetadataName("System.SystemException")) || exceptionType.SpecialType.Equals(compilation.GetTypeByMetadataName("System.SystemException").SpecialType)
+                || exceptionType.Equals(compilation.GetTypeByMetadataName("System.ApplicationException")) || exceptionType.SpecialType.Equals(compilation.GetTypeByMetadataName("System.ApplicationException").SpecialType))
             {
                 return 0;
             }
-            else if (exceptionType.Equals(compilation.GetTypeByMetadataName("System.Exception")))
+            else if (exceptionType.Equals(compilation.GetTypeByMetadataName("System.Exception")) || exceptionType.SpecialType.Equals(compilation.GetTypeByMetadataName("System.Exception").SpecialType))
             {
                 return 1;
             }
-            else if (exceptionType.Equals(compilation.GetTypeByMetadataName("System.Object")))
+            else if (exceptionType.Equals(compilation.GetTypeByMetadataName("System.Object")) || exceptionType.SpecialType.Equals(compilation.GetTypeByMetadataName("System.Object").SpecialType))
             {
                 return -1;
             }

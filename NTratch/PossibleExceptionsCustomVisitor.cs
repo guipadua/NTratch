@@ -63,24 +63,30 @@ namespace NTratch
             //processNode(node);
             string exceptionName = "";
 
-            var treeThrow = node.SyntaxTree;
-            var modelThrow = m_treeAndModelDic[treeThrow];
-            var symbolInfoThrow = modelThrow.GetSymbolInfo(node.Expression);
-            var symbolThrow = symbolInfoThrow.Symbol;
-
-            if (symbolThrow == null)
-            {   // recover by using the overall semantic model
-                modelThrow = m_compilation.GetSemanticModel(treeThrow);
-                symbolInfoThrow = modelThrow.GetSymbolInfo(node.Expression);
-                symbolThrow = symbolInfoThrow.Symbol;
-            }
-
-            //var symbol = semanticModel.GetSymbolInfo(recoverStatement).Symbol as LocalSymbol;
-            //String typeName = symbol.Type.ToString();
-
-            if (symbolThrow != null)
+            if (node.Expression != null)
             {
-                exceptionName = symbolThrow.ContainingType.ToString();
+                var treeThrow = node.SyntaxTree;
+                var modelThrow = m_treeAndModelDic[treeThrow];
+                var symbolInfoThrow = modelThrow.GetSymbolInfo(node.Expression);
+                var symbolThrow = symbolInfoThrow.Symbol;
+
+                if (symbolThrow == null)
+                {   // recover by using the overall semantic model
+                    modelThrow = m_compilation.GetSemanticModel(treeThrow);
+                    symbolInfoThrow = modelThrow.GetSymbolInfo(node.Expression);
+                    symbolThrow = symbolInfoThrow.Symbol;
+                }
+
+                //var symbol = semanticModel.GetSymbolInfo(recoverStatement).Symbol as LocalSymbol;
+                //String typeName = symbol.Type.ToString();
+
+                if (symbolThrow != null)
+                {
+                    exceptionName = symbolThrow.ContainingType.ToString();
+                }
+            } else
+            {
+                exceptionName = "!NO_EXCEPTION_DECLARED!";
             }
 
             var possibleException = new Dictionary<string, Dictionary<string, sbyte>>();
@@ -343,7 +349,7 @@ namespace NTratch
             if (xml != null && xml != "")
             {
                 XmlDocument xmlDoc = new XmlDocument();
-                xmlDoc.LoadXml("<comment_root>" + xml + "</comment_root>");
+                xmlDoc.LoadXml("<comment_root>" + RemoveInvalidXmlChars(xml) + "</comment_root>");
 
                 XmlNodeList nodeList;
                 XmlNode root = xmlDoc.DocumentElement;
@@ -352,12 +358,28 @@ namespace NTratch
 
                 foreach (XmlNode exception in nodeList)
                 {
-                    var exceptionTypeName = exception.Attributes.GetNamedItem("cref").InnerText.Replace("T:", "");
+                    var exceptionTypeName = exception.Attributes.GetNamedItem("cref")?.InnerText.Replace("T:", "");
+
+                    if(exceptionTypeName == null)
+                        exceptionTypeName = exception.Attributes.GetNamedItem("type")?.InnerText.Replace("T:", "");
+
+                    if (exceptionTypeName == null)
+                        exceptionTypeName = "!XML_EXCEPTION_NOT_IDENTIFIED!";
+
                     //var exceptionType = m_compilation.GetTypeByMetadataName(exceptionTypeName);
 
                     AddPossibleExceptions(exceptionTypeName, ref p_nodePossibleExceptions, p_originKey);                    
                 }
             }
+        }
+
+        static string RemoveInvalidXmlChars(string text)
+        {
+            var validXmlChars = text.Where(ch => XmlConvert.IsXmlChar(ch)).ToArray();
+
+            var validXmlString = new string(validXmlChars);
+
+            return validXmlString.Replace("&", "");
         }
 
         public void AddPossibleExceptions(string p_exceptionTypeName, ref Dictionary<string, Dictionary<string, sbyte>> p_PossibleExceptions, string p_originKey)

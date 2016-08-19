@@ -36,7 +36,7 @@ namespace NTratch.test
         }
 
 
-        /// <exception cref="System.Runtime.InteropServices.COMException">Always throw.</exception>
+        /// <exception cref="System.Runtime.InteropServices.COMException">Always throw & have a invalid xml char.</exception>
         public void m20()
         {
             m500();
@@ -50,6 +50,7 @@ namespace NTratch.test
         private void m600()
         {
             //cool 
+            
         }        
         private void m30()
         {
@@ -61,6 +62,7 @@ namespace NTratch.test
             catch
             {
                 // don't tell mama anything
+                throw;
             }            
         }
         private void m2()
