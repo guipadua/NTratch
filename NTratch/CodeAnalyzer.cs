@@ -405,7 +405,7 @@ namespace NTratch
             //catchBlockInfo.MetaInfo["TryMethods"] = possibleExceptionsCustomVisitor.PrintInvokedMethodsHandlerType();
             catchBlockInfo.MetaInfo["TryMethodsAndExceptions"] = possibleExceptionsCustomVisitor.PrintInvokedMethodsPossibleExceptions();
             
-            catchBlockInfo.OperationFeatures["NumMethod"] = possibleExceptionsCustomVisitor.countInvokedMethodsHandlerType();
+            catchBlockInfo.OperationFeatures["NumDistinctMethods"] = possibleExceptionsCustomVisitor.countInvokedMethodsHandlerType();
 
             catchBlockInfo.MetaInfo["TryMethodsBinded"] = possibleExceptionsCustomVisitor.PrintInvokedMethodsBinded();
 

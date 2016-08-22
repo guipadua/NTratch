@@ -404,7 +404,7 @@ namespace NTratch
             dicXmlFromSemantic.Add("HandlerTypeCode", -9);
             dicXmlFromSemantic.Add("IsXMLSemantic", 0);
             dicXmlFromSemantic.Add("IsXMLSyntax", 0);
-            dicXmlFromSemantic.Add("IsLoop", 0);
+            //dicXmlFromSemantic.Add("IsLoop", 0);
             dicXmlFromSemantic.Add("IsThrow", 0);
             dicXmlFromSemantic.Add("DeepestLevelFound", 0);
             

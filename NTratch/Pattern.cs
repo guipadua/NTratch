@@ -242,10 +242,10 @@ namespace NTratch
             OperationFeatures.Add("FinallyThrowing", 0);
 
             //Binding based info:
-            MetaInfo.Add("TryMethods", "'-trymethods");
+            //MetaInfo.Add("TryMethods", "'-trymethods");
             MetaInfo.Add("TryMethodsAndExceptions", "'-trymethodsandexceptions");
 
-            OperationFeatures.Add("NumMethod", 0);
+            OperationFeatures.Add("NumDistinctMethods", 0);
             MetaInfo.Add("TryMethodsBinded", "'-trymethodsbinded");
             OperationFeatures.Add("NumMethodsNotBinded", 0);
 
