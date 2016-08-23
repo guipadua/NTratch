@@ -258,10 +258,10 @@ namespace NTratch
             OperationFeatures.Add("NumOtherHandler", 0);
 
             OperationFeatures.Add("MaxLevel", 0);
-            OperationFeatures.Add("IsXMLSemantic", 0);
-            OperationFeatures.Add("IsXMLSyntax", 0);
+            OperationFeatures.Add("NumIsXMLSemantic", 0);
+            OperationFeatures.Add("NumIsXMLSyntax", 0);
             //OperationFeatures.Add("IsLoop", 0);
-            OperationFeatures.Add("IsThrow", 0);
+            OperationFeatures.Add("NumIsThrow", 0);
 
             //Comments info - not in the Catch Visitor
             OperationFeatures.Add("ToDo", 0);

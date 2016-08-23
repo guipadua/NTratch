@@ -19,7 +19,7 @@ namespace NTratch
         private Dictionary<SyntaxTree, SemanticModel> m_treeAndModelDic;
         private Compilation m_compilation;
 
-        private Dictionary<string, sbyte> invokedMethodsBinded = new Dictionary<string, sbyte>();
+        private Dictionary<string, sbyte> m_invokedMethodsBinded = new Dictionary<string, sbyte>();
 
         //private Dictionary<string, Dictionary<string, sbyte>> invokedMethodsHandlerType = new Dictionary<string, Dictionary<string, sbyte>>();
         private Dictionary<string, Dictionary<string, Dictionary<string, sbyte>>> m_invokedMethodsPossibleExceptions = new Dictionary<string, Dictionary<string, Dictionary<string, sbyte>>>();
@@ -30,8 +30,6 @@ namespace NTratch
 
         private int m_myLevel = 0;
         private Dictionary<string, int> m_ChildrenNodesLevel = new Dictionary<string, int>();
-
-        private int numMethodsNotBinded = 0;
 
         public bool m_isForAnalysis { get; private set; }
 
@@ -208,7 +206,7 @@ namespace NTratch
             {
                 
                 nodeString = nodeSymbol.ToString();
-                invokedMethodsBinded[nodeString] = 1;
+                m_invokedMethodsBinded[nodeString] = 1;
 
                 if (!m_ChildrenNodesLevel.ContainsKey(nodeString))
                 {
@@ -219,9 +217,8 @@ namespace NTratch
             else
             {
                 nodeString = node.ToString();
-                invokedMethodsBinded[nodeString] = 0;
-                numMethodsNotBinded++;
-
+                m_invokedMethodsBinded[nodeString] = 0;
+                
                 if (!m_ChildrenNodesLevel.ContainsKey(nodeString))
                 {
                     m_ChildrenNodesLevel.Add(nodeString, 1);                    
@@ -623,7 +620,7 @@ namespace NTratch
 
         public string PrintInvokedMethodsBinded()
         {
-            return PrintDictionary(invokedMethodsBinded);            
+            return PrintDictionary(m_invokedMethodsBinded);            
         }
 
         public string PrintDictionary(Dictionary<string, Dictionary<string, Dictionary<string, sbyte>>> entrySet)
@@ -761,7 +758,7 @@ namespace NTratch
         }
         public int getNumMethodsNotBinded()
         {
-            return numMethodsNotBinded;
+            return m_invokedMethodsBinded.Count(entry => entry.Value == 0);
         }
         public int getNumIsXMLSemantic()
         {

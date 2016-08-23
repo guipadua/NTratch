@@ -391,7 +391,12 @@ namespace NTratch
             if(finallyBlock != null)
             {
                 catchBlockInfo.MetaInfo["FinallyBlock"] = finallyBlock.ToString();
-                if (finallyBlock.DescendantNodes().OfType<ThrowStatementSyntax>().Any())
+
+                var finallyPossibleExceptionsCustomVisitor = new PossibleExceptionsCustomVisitor(ref exceptionNamedTypeSymbol, ref treeAndModelDic, ref compilation, true, 0);
+                finallyPossibleExceptionsCustomVisitor.Visit(tryBlock.Block);
+
+                if (finallyBlock.DescendantNodes().OfType<ThrowStatementSyntax>().Any() 
+                        || finallyPossibleExceptionsCustomVisitor.getNumDistinctPossibleExceptions() > 0)
                     catchBlockInfo.OperationFeatures["FinallyThrowing"] = 1;
             }
             
@@ -399,31 +404,31 @@ namespace NTratch
             //var containingMethod = GetContainingMethodName(tryBlock, model);
             //var methodNameList = GetAllInvokedMethodNamesByBFS(tryBlock.Block, treeAndModelDic, compilation);
 
-            var possibleExceptionsCustomVisitor = new PossibleExceptionsCustomVisitor(ref exceptionNamedTypeSymbol, ref treeAndModelDic, ref compilation, true, 0);
-            possibleExceptionsCustomVisitor.Visit(tryBlock.Block);
+            var tryPossibleExceptionsCustomVisitor = new PossibleExceptionsCustomVisitor(ref exceptionNamedTypeSymbol, ref treeAndModelDic, ref compilation, true, 0);
+            tryPossibleExceptionsCustomVisitor.Visit(tryBlock.Block);
 
             //catchBlockInfo.MetaInfo["TryMethods"] = possibleExceptionsCustomVisitor.PrintInvokedMethodsHandlerType();
-            catchBlockInfo.MetaInfo["TryMethodsAndExceptions"] = possibleExceptionsCustomVisitor.PrintInvokedMethodsPossibleExceptions();
+            catchBlockInfo.MetaInfo["TryMethodsAndExceptions"] = tryPossibleExceptionsCustomVisitor.PrintInvokedMethodsPossibleExceptions();
             
-            catchBlockInfo.OperationFeatures["NumDistinctMethods"] = possibleExceptionsCustomVisitor.countInvokedMethodsHandlerType();
+            catchBlockInfo.OperationFeatures["NumDistinctMethods"] = tryPossibleExceptionsCustomVisitor.countInvokedMethodsHandlerType();
 
-            catchBlockInfo.MetaInfo["TryMethodsBinded"] = possibleExceptionsCustomVisitor.PrintInvokedMethodsBinded();
+            catchBlockInfo.MetaInfo["TryMethodsBinded"] = tryPossibleExceptionsCustomVisitor.PrintInvokedMethodsBinded();
 
-            catchBlockInfo.OperationFeatures["NumMethodsNotBinded"] = possibleExceptionsCustomVisitor.getNumMethodsNotBinded();
+            catchBlockInfo.OperationFeatures["NumDistinctMethodsNotBinded"] = tryPossibleExceptionsCustomVisitor.getNumMethodsNotBinded();
 
-            catchBlockInfo.MetaInfo["DistinctExceptions"] = possibleExceptionsCustomVisitor.PrintDistinctPossibleExceptions();
-            catchBlockInfo.OperationFeatures["NumDistinctExceptions"] = possibleExceptionsCustomVisitor.getNumDistinctPossibleExceptions();
+            catchBlockInfo.MetaInfo["DistinctExceptions"] = tryPossibleExceptionsCustomVisitor.PrintDistinctPossibleExceptions();
+            catchBlockInfo.OperationFeatures["NumDistinctExceptions"] = tryPossibleExceptionsCustomVisitor.getNumDistinctPossibleExceptions();
 
-            catchBlockInfo.OperationFeatures["NumSpecificHandler"] = possibleExceptionsCustomVisitor.getNumSpecificHandler();
-            catchBlockInfo.OperationFeatures["NumSubsumptionHandler"] = possibleExceptionsCustomVisitor.getNumSubsumptionHandler();
-            catchBlockInfo.OperationFeatures["NumSupersumptionHandler"] = possibleExceptionsCustomVisitor.getNumSupersumptionHandler();
-            catchBlockInfo.OperationFeatures["NumOtherHandler"] = possibleExceptionsCustomVisitor.getNumOtherHandler();
+            catchBlockInfo.OperationFeatures["NumSpecificHandler"] = tryPossibleExceptionsCustomVisitor.getNumSpecificHandler();
+            catchBlockInfo.OperationFeatures["NumSubsumptionHandler"] = tryPossibleExceptionsCustomVisitor.getNumSubsumptionHandler();
+            catchBlockInfo.OperationFeatures["NumSupersumptionHandler"] = tryPossibleExceptionsCustomVisitor.getNumSupersumptionHandler();
+            catchBlockInfo.OperationFeatures["NumOtherHandler"] = tryPossibleExceptionsCustomVisitor.getNumOtherHandler();
 
-            catchBlockInfo.OperationFeatures["MaxLevel"] = possibleExceptionsCustomVisitor.getChildrenMaxLevel();
-            catchBlockInfo.OperationFeatures["IsXMLSemantic"] = possibleExceptionsCustomVisitor.getNumIsXMLSemantic();
-            catchBlockInfo.OperationFeatures["IsXMLSyntax"] = possibleExceptionsCustomVisitor.getNumIsXMLSyntax();
+            catchBlockInfo.OperationFeatures["MaxLevel"] = tryPossibleExceptionsCustomVisitor.getChildrenMaxLevel();
+            catchBlockInfo.OperationFeatures["NumIsXMLSemantic"] = tryPossibleExceptionsCustomVisitor.getNumIsXMLSemantic();
+            catchBlockInfo.OperationFeatures["NumIsXMLSyntax"] = tryPossibleExceptionsCustomVisitor.getNumIsXMLSyntax();
             //catchBlockInfo.OperationFeatures["IsLoop"] = possibleExceptionsCustomVisitor.getNumIsLoop();
-            catchBlockInfo.OperationFeatures["IsThrow"] = possibleExceptionsCustomVisitor.getNumIsThrow();
+            catchBlockInfo.OperationFeatures["NumIsThrow"] = tryPossibleExceptionsCustomVisitor.getNumIsThrow();
 
             //var methodAndExceptionList = GetAllInvokedMethodNamesAndExceptionsByBFS(tryBlock.Block, treeAndModelDic, compilation);
 
