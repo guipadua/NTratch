@@ -19,9 +19,12 @@ namespace NTratch
 
         public CodeWalker()
         {
-            var mscorlib = FromType(typeof(object));
-            
+            var mscorlib = FromType(typeof(object));            
             appReflist.Add(mscorlib);
+
+            var coreLib = FromGAC("System.Core");
+            appReflist.Add(coreLib);
+
             //mscorlib.
             // Find all the application API dll references files
             IEnumerable<string> appLibFiles = Directory.EnumerateFiles(IOFile.InputFolderPath,
@@ -39,6 +42,14 @@ namespace NTratch
         {
             var path = type.Assembly.Location;
             return MetadataReference.CreateFromFile(path, documentation: GetDocumentationProvider(path));
+        }
+
+        private static MetadataReference FromGAC(string libName)
+        {
+            var assemblyPath = Path.GetDirectoryName(typeof(object).Assembly.Location);
+            var path = Path.Combine(assemblyPath, libName + ".dll");
+            // Add system API libs by MetadataReference.CreateAssemblyReference
+            return MetadataReference.CreateFromFile(path, documentation: GetDocumentationProvider(path));            
         }
 
         private static MetadataReference FromFile(string path)
@@ -194,10 +205,8 @@ namespace NTratch
 
                     try
                     {
-                        var assemblyPath = Path.GetDirectoryName(typeof(object).Assembly.Location);
-
                         // Add system API libs by MetadataReference.CreateAssemblyReference
-                        reference = MetadataReference.CreateFromFile(Path.Combine(assemblyPath, libName + ".dll"));
+                        reference = FromGAC(libName);
                     }
                     catch (Exception)
                     {

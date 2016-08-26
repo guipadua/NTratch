@@ -15,15 +15,19 @@ namespace NTratch
         public TreeStatistics()
         {
             CodeStats = new Dictionary<string, int>();
+
             CodeStats.Add("NumLOC", 0);
             CodeStats.Add("NumCatchBlock", 0);
+
+            CodeStats.Add("NumBinded", 0);
+            CodeStats.Add("NumNoDeclaration", 0);
+
+            CodeStats.Add("NumMethodsNotBinded", 0);
 
             CodeStats.Add("NumLoggedCatchBlock", 0);
             CodeStats.Add("NumExceptionTypeCatch", 0);
 
-            CodeStats.Add("NumBinded", 0);
             CodeStats.Add("NumRecoveredBinding", 0);
-            CodeStats.Add("NumMethodsNotBinded", 0);
 
             //CodeStats.Add("NumLoggedLOC", 0);
             //CodeStats.Add("NumCall", 0);
@@ -89,6 +93,7 @@ namespace NTratch
             CodeStats["NumLoggedCatchBlock"] = CatchBlocks.NumLogged;
 
             CodeStats["NumBinded"] = CatchBlocks.NumBinded;
+            CodeStats["NumNoDeclaration"] = CatchBlocks.NumNoDeclaration;
             CodeStats["NumRecoveredBinding"] = CatchBlocks.NumRecoveredBinding;
             CodeStats["NumMethodsNotBinded"] = CatchBlocks.NumMethodsNotBinded;
 
@@ -99,11 +104,21 @@ namespace NTratch
         }
 
         public void PrintSatistics()
-        {           
+        {
+            string header = "";
+            string content = "";
+
             foreach (var stat in CodeStats.Keys)
             {
-                Logger.Log(stat + ": " + CodeStats[stat]);
+                header += stat + "\t";
+                content += CodeStats[stat] + "\t";
+
+                //Logger.Log(stat + ": " + CodeStats[stat]);
             }
+
+            Logger.Log(header);
+            Logger.Log(content);
+
             CatchBlocks.PrintToFile();
             //APICalls.PrintToFile();
         }
@@ -247,7 +262,7 @@ namespace NTratch
 
             OperationFeatures.Add("NumDistinctMethods", 0);
             MetaInfo.Add("TryMethodsBinded", "'-trymethodsbinded");
-            OperationFeatures.Add("NumMethodsNotBinded", 0);
+            OperationFeatures.Add("NumDistinctMethodsNotBinded", 0);
 
             MetaInfo.Add("DistinctExceptions", "'DistinctExceptions");
             OperationFeatures.Add("NumDistinctExceptions", 0);
@@ -290,6 +305,7 @@ namespace NTratch
         public int NumLoggedNotThrown = 0;
 
         public int NumBinded = 0;
+        public int NumNoDeclaration = 0;
         public int NumRecoveredBinding = 0;
         public int NumMethodsNotBinded = 0;
     }
@@ -298,6 +314,7 @@ namespace NTratch
     {
         public int NumCatch = 0;
         public int NumBinded = 0;
+        public int NumNoDeclaration = 0;
         public int NumRecoveredBinding = 0;
         public int NumMethodsNotBinded = 0;
         public int NumLogged = 0;
@@ -349,12 +366,17 @@ namespace NTratch
                     this[exception].NumBinded++;
                     NumBinded++;
                 }
+                if (catchBlock.ExceptionType == "!NO_EXCEPTION_DECLARED!")
+                {
+                    this[exception].NumNoDeclaration++;
+                    NumNoDeclaration++;
+                }
                 if (catchBlock.OperationFeatures["RecoveredBinding"] == 1)
                 {
                     this[exception].NumRecoveredBinding++;
                     NumRecoveredBinding++;
                 }
-                if (catchBlock.OperationFeatures["NumMethodsNotBinded"] > 0)
+                if (catchBlock.OperationFeatures["NumDistinctMethodsNotBinded"] > 0)
                 {
                     this[exception].NumMethodsNotBinded++;
                     NumMethodsNotBinded++;

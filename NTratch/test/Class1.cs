@@ -24,6 +24,9 @@ namespace NTratch.test
             {
                 //I'm the catch 22
                 Console.WriteLine("someone tried to load a path which is too long!" + ex.Message);
+            } finally
+            {
+                m20();
             }
         }
         public void m1()
@@ -49,7 +52,7 @@ namespace NTratch.test
         }
         private void m600()
         {
-            //cool 
+            notcool();//cool 
             
         }        
         private void m30()

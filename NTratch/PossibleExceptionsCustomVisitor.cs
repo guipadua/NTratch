@@ -193,7 +193,6 @@ namespace NTratch
 
         private void processExpressionNodeAndVisit(SyntaxNode node)
         {
-            
             var nodeString = "";
             var nodePossibleExceptions = new Dictionary<string, Dictionary<string, sbyte>>();
             BaseMethodDeclarationSyntax nodemDeclar = null;
@@ -204,7 +203,6 @@ namespace NTratch
             //NodeSymbol is not empty it means it's binded and we have semantic info - define nodeString
             if (nodeSymbol != null)
             {
-                
                 nodeString = nodeSymbol.ToString();
                 m_invokedMethodsBinded[nodeString] = 1;
 
@@ -236,6 +234,8 @@ namespace NTratch
 
                 var possibleExceptionsCustomVisitor = new PossibleExceptionsCustomVisitor(ref m_exceptionType, ref m_treeAndModelDic, ref m_compilation, false, m_myLevel + 1);
                 possibleExceptionsCustomVisitor.Visit(nodemDeclar);
+
+                CodeAnalyzer.MergeDic(ref m_invokedMethodsBinded, possibleExceptionsCustomVisitor.m_invokedMethodsBinded);
 
                 var nodeDeclarExceptions = new Dictionary<string, Dictionary<string, sbyte>>();
                 MergePossibleExceptionsDic(ref nodeDeclarExceptions, GetExceptionsFromXMLSyntax(ref nodemDeclar));

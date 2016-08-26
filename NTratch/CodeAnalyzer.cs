@@ -386,20 +386,6 @@ namespace NTratch
             if (IsToDo(updatedCatchBlock))
                 catchBlockInfo.OperationFeatures["ToDo"] = 1;
 
-            //FinallyThrowing
-            FinallyClauseSyntax finallyBlock = tryBlock.Finally;
-            if(finallyBlock != null)
-            {
-                catchBlockInfo.MetaInfo["FinallyBlock"] = finallyBlock.ToString();
-
-                var finallyPossibleExceptionsCustomVisitor = new PossibleExceptionsCustomVisitor(ref exceptionNamedTypeSymbol, ref treeAndModelDic, ref compilation, true, 0);
-                finallyPossibleExceptionsCustomVisitor.Visit(tryBlock.Block);
-
-                if (finallyBlock.DescendantNodes().OfType<ThrowStatementSyntax>().Any() 
-                        || finallyPossibleExceptionsCustomVisitor.getNumDistinctPossibleExceptions() > 0)
-                    catchBlockInfo.OperationFeatures["FinallyThrowing"] = 1;
-            }
-            
             //var variableAndComments = GetVariablesAndComments(tryBlock.Block);
             //var containingMethod = GetContainingMethodName(tryBlock, model);
             //var methodNameList = GetAllInvokedMethodNamesByBFS(tryBlock.Block, treeAndModelDic, compilation);
@@ -429,6 +415,20 @@ namespace NTratch
             catchBlockInfo.OperationFeatures["NumIsXMLSyntax"] = tryPossibleExceptionsCustomVisitor.getNumIsXMLSyntax();
             //catchBlockInfo.OperationFeatures["IsLoop"] = possibleExceptionsCustomVisitor.getNumIsLoop();
             catchBlockInfo.OperationFeatures["NumIsThrow"] = tryPossibleExceptionsCustomVisitor.getNumIsThrow();
+
+            //FinallyThrowing
+            FinallyClauseSyntax finallyBlock = tryBlock.Finally;
+            if (finallyBlock != null)
+            {
+                catchBlockInfo.MetaInfo["FinallyBlock"] = finallyBlock.ToString();
+
+                var finallyPossibleExceptionsCustomVisitor = new PossibleExceptionsCustomVisitor(ref exceptionNamedTypeSymbol, ref treeAndModelDic, ref compilation, true, 0);
+                finallyPossibleExceptionsCustomVisitor.Visit(finallyBlock.Block);
+
+                if (finallyBlock.DescendantNodes().OfType<ThrowStatementSyntax>().Any()
+                        || finallyPossibleExceptionsCustomVisitor.getNumDistinctPossibleExceptions() > 0)
+                    catchBlockInfo.OperationFeatures["FinallyThrowing"] = 1;
+            }
 
             //var methodAndExceptionList = GetAllInvokedMethodNamesAndExceptionsByBFS(tryBlock.Block, treeAndModelDic, compilation);
 
