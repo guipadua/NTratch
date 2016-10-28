@@ -8,44 +8,56 @@ namespace NTratch.test
     {
         string name;
 
-        public void m0()
+        public void NonGenericCatch()
         {
             try
             {
-                m1(); // possible exceptions: COMException, and 5 from System method GetFullPath: PathTooLongException, ArgumentException, SecurityException, ArgumentNullException, NotSupportedException
-                m2(); // possible exceptions: AccessViolationException, IOException
-                m3(); // possible exceptions: NotImplementedException                
+                Method1();                           
             }
             catch (PathTooLongException ex)
             {
-                logger.Error("Path Too Long!", ex);                
+                logger.Error("Path Too Long!", ex);
             } 
         }
 
-        public void m1()
+        public void GenericCatch()
         {
-            m20(); // pe: COMException
-            m30(); //pe: 0
-            //pe: PathTooLongException
-            Path.GetFullPath("I'm toooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo long for Windows File System to handle.");
+            try
+            {
+                Method1();                
+            }
+            catch (Exception ex)
+            {
+                logger.Error("Exception happened!", ex);
+            }
+        }
+
+        public void Method1()
+        {
+            Method20();
+            // [PathTooLongException Semantic Doc]:
+            Path.GetFullPath(very_long_string);
         }
         
-        /// <exception cref="System.Runtime.InteropServices.COMException">Always throw.</exception>
-        public void m20()
+        /// <exception cref=
+        /// "System.Runtime.InteropServices.COMException">
+        /// [COMException Syntax Doc].</exception>
+        public void Method20()
         {
-            m500();
-            m600();
+            // [COMException Syntax Throw]:
             throw new COMException();
-        }               
-        private void m30()
+        }   
+        
+                    
+        private void Method30()
         {
             try
             {
                 throw new DivideByZeroException();
             }
-            catch //Generic catch
+            catch 
             {
-               //empty
+               
             }            
         }
         private void m2()
