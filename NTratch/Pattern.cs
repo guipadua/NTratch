@@ -119,7 +119,10 @@ namespace NTratch
             Logger.Log(header);
             Logger.Log(content);
 
-            CatchBlocks.PrintToFile();
+            if (CatchBlocks.Count > 0)
+            {
+                CatchBlocks.PrintToFileCSV();
+            }
             //APICalls.PrintToFile();
         }
     }
@@ -129,6 +132,7 @@ namespace NTratch
         public Dictionary<string, int> OperationFeatures;
         //public Dictionary<String, int> TextFeatures; //TextFeatures is only on the API call
         public string FilePath;
+        public int StartLine;
         public string ExceptionType;
         public string ParentType;
         public string ParentMethod;
@@ -146,10 +150,13 @@ namespace NTratch
             OperationFeatures.Add("TryLOC", 0);
             OperationFeatures.Add("CatchLine", 0);
             OperationFeatures.Add("CatchLOC", 0);
+            OperationFeatures.Add("CatchStart", 0);
+            OperationFeatures.Add("CatchLength", 0);
             OperationFeatures.Add("MethodLine", 0);
             OperationFeatures.Add("MethodLOC", 0);
 
             MetaInfo.Add("FilePath", "'-filepath");
+            MetaInfo.Add("StartLine", "'-startLine");
             MetaInfo.Add("ExceptionType", "'-exceptiontype");
             MetaInfo.Add("ParentType", "'-parenttype");
             MetaInfo.Add("ParentMethod", "'-parentmethod");
@@ -167,24 +174,10 @@ namespace NTratch
             features += (ExceptionType + Splitter);
             features += (ParentMethod + Splitter);
             features += (ParentType + Splitter);
+            features += (FilePath + Splitter);
+            features += (StartLine + Splitter);
 
             return features;
-        }
-
-        public string PrintCSV()
-        {
-            string csv = null;
-
-            foreach (var key in OperationFeatures.Keys)
-            {
-                csv += (OperationFeatures[key] + ",");
-            }
-            csv += (ExceptionType + ",");
-            csv += (ParentMethod + ",");
-            csv += (ParentType + ",");
-            csv += (FilePath);
-
-            return csv;
         }
 
         public string PrintMetaInfo()
@@ -195,6 +188,40 @@ namespace NTratch
                 metaInfo += (IOFile.DeleteSpace(MetaInfo[key]) + Splitter);
             }
             return metaInfo;
+        }
+
+        public string PrintFeaturesCSV()
+        {
+            string csv = "";
+
+            foreach (var key in OperationFeatures.Keys)
+            {
+                csv += (OperationFeatures[key] + ",");
+            }
+            csv += (ExceptionType + ",");
+            csv += (ParentMethod + ",");
+            csv += (ParentType + ",");
+            csv += (FilePath + ",");
+            csv += (StartLine);
+
+            return csv;
+        }
+
+        public string PrintMetaInfoCSV()
+        {
+            String csv = "";
+
+            foreach (var key in MetaInfo.Keys)
+            {
+                csv += '"' + (MetaInfo[key].Replace(("" + '"'), "") + '"' + ",");
+            }
+            //        csv += (ExceptionType + ",");
+            //        csv += (ParentMethod + ",");
+            //        csv += (ParentType + ",");
+            //        csv += (FilePath + ",");
+            //        csv += (StartLine);
+
+            return csv;
         }
 
     }
@@ -273,9 +300,8 @@ namespace NTratch
             OperationFeatures.Add("NumOtherHandler", 0);
 
             OperationFeatures.Add("MaxLevel", 0);
-            OperationFeatures.Add("NumIsXMLSemantic", 0);
-            OperationFeatures.Add("NumIsXMLSyntax", 0);
-            //OperationFeatures.Add("IsLoop", 0);
+            OperationFeatures.Add("NumIsDocSemantic", 0);
+            OperationFeatures.Add("NumIsDocSyntax", 0);
             OperationFeatures.Add("NumIsThrow", 0);
 
             //Comments info - not in the Catch Visitor
@@ -292,9 +318,7 @@ namespace NTratch
 
             MetaKeys = MetaInfo.Keys.ToList();
             OpFeaturesKeys = OperationFeatures.Keys.ToList();
-        }
-
-        
+        }        
     }
 
     class CatchList : List<CatchBlock>
@@ -383,14 +407,53 @@ namespace NTratch
                 }
             }
         }
+        public void PrintToFileCSV()
+        {
+            Logger.Log("Writing CatchBlock features into file...");
+            StreamWriter csvSW = new StreamWriter(IOFile.CompleteFileNameOutput("CatchBlock.csv"));
+            StreamWriter metaCSVSW = new StreamWriter(IOFile.CompleteFileNameOutput("CatchBlock_Meta.csv"));
 
-        public void PrintToFile()
+            int catchId = 0;
+            string metaKey = "";
+
+            foreach (var meta in CatchBlock.MetaKeys)
+            {
+                metaKey += (meta + ",");
+            }
+
+            string OpFeaturesKey = "";
+
+            foreach (var OpFeature in CatchBlock.OpFeaturesKeys)
+            {
+                OpFeaturesKey += (OpFeature + ",");
+            }
+
+            csvSW.WriteLine("id," + OpFeaturesKey + "ExceptionType,ParentMethod,ParentType,FilePath,StartLine");
+            metaCSVSW.WriteLine("id," + metaKey);
+            
+            foreach (string exception in this.Keys)
+            {
+                CatchList catchList = this[exception];
+                foreach (var catchblock in catchList)
+                {
+                    catchId++;
+                    csvSW.WriteLine(catchId + "," + catchblock.PrintFeaturesCSV());
+                    metaCSVSW.WriteLine(catchId + "," + catchblock.PrintMetaInfoCSV());
+                }
+                csvSW.Flush();
+                metaCSVSW.Flush();
+            }
+
+            csvSW.Close();
+            metaCSVSW.Close();
+            Logger.Log("Writing done.");
+        }
+        public void PrintToFileTXT()
         {
             Logger.Log("Writing CatchBlock features into file...");
             StreamWriter sw = new StreamWriter(IOFile.CompleteFileNameOutput("CatchBlock.txt"));
             StreamWriter metaSW = new StreamWriter(IOFile.CompleteFileNameOutput("CatchBlock_Meta.txt"));
-            StreamWriter csvSW = new StreamWriter(IOFile.CompleteFileNameOutput("CatchBlock.csv"));
-
+            
             int catchId = 0;
 
             string metaKey = CatchBlock.Splitter;
@@ -405,7 +468,6 @@ namespace NTratch
                 OpFeaturesKey += (OpFeature + ",");
             }
 
-            csvSW.WriteLine("ID," + OpFeaturesKey + "ExceptionType,ParentMethod,ParentType,FilePath");
             metaSW.WriteLine(metaKey);
             metaSW.WriteLine("'--------------------------------------------------------");
             metaSW.WriteLine("NumExceptionType: {0}, NumCatchBlock: {1}, NumLogged: {2}, "
@@ -436,14 +498,11 @@ namespace NTratch
                     catchId++;
                     sw.WriteLine("ID:" + catchId + CatchBlock.Splitter + catchblock.PrintFeatures());
                     metaSW.WriteLine("ID:" + catchId + CatchBlock.Splitter + catchblock.PrintMetaInfo());
-                    csvSW.WriteLine(catchId + "," + catchblock.PrintCSV());
                 }
                 metaSW.WriteLine();
                 metaSW.WriteLine();
-                csvSW.WriteLine();
                 sw.Flush();
                 metaSW.Flush();
-                csvSW.Flush();
             }
 
             //Print summary
@@ -470,7 +529,6 @@ namespace NTratch
             }
             sw.Close();
             metaSW.Close();
-            csvSW.Close();
             Logger.Log("Writing done.");
         }
     }

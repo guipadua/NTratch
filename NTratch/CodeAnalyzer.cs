@@ -411,9 +411,8 @@ namespace NTratch
             catchBlockInfo.OperationFeatures["NumOtherHandler"] = tryPossibleExceptionsCustomVisitor.getNumOtherHandler();
 
             catchBlockInfo.OperationFeatures["MaxLevel"] = tryPossibleExceptionsCustomVisitor.getChildrenMaxLevel();
-            catchBlockInfo.OperationFeatures["NumIsXMLSemantic"] = tryPossibleExceptionsCustomVisitor.getNumIsXMLSemantic();
-            catchBlockInfo.OperationFeatures["NumIsXMLSyntax"] = tryPossibleExceptionsCustomVisitor.getNumIsXMLSyntax();
-            //catchBlockInfo.OperationFeatures["IsLoop"] = possibleExceptionsCustomVisitor.getNumIsLoop();
+            catchBlockInfo.OperationFeatures["NumIsDocSemantic"] = tryPossibleExceptionsCustomVisitor.getNumIsXMLSemantic();
+            catchBlockInfo.OperationFeatures["NumIsDocSyntax"] = tryPossibleExceptionsCustomVisitor.getNumIsXMLSyntax();
             catchBlockInfo.OperationFeatures["NumIsThrow"] = tryPossibleExceptionsCustomVisitor.getNumIsThrow();
 
             //FinallyThrowing

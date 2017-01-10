@@ -401,7 +401,6 @@ namespace NTratch
             dicXmlFromSemantic.Add("HandlerTypeCode", -9);
             dicXmlFromSemantic.Add("IsXMLSemantic", 0);
             dicXmlFromSemantic.Add("IsXMLSyntax", 0);
-            //dicXmlFromSemantic.Add("IsLoop", 0);
             dicXmlFromSemantic.Add("IsThrow", 0);
             dicXmlFromSemantic.Add("DeepestLevelFound", 0);
             
@@ -764,10 +763,6 @@ namespace NTratch
         {
             return CountMetricsForExceptions("IsXMLSemantic", 1);
         }
-        public int getNumIsLoop()
-        {
-            return CountMetricsForExceptions("IsLoop", 1);
-        }
         public int getNumIsXMLSyntax()
         {
             return CountMetricsForExceptions("IsXMLSyntax", 1);
@@ -776,8 +771,6 @@ namespace NTratch
         {
             return CountMetricsForExceptions("IsThrow", 1);
         }
-
-
         internal int getChildrenMaxLevel()
         {
             return (m_ChildrenNodesLevel.Values.Count > 0) ? m_ChildrenNodesLevel.Values.Max() : 0;
