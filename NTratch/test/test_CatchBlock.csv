@@ -1,6 +1,0 @@
-ID,TryLine,TryLOC,CatchLine,CatchLOC,MethodLine,MethodLOC,Binded,RecoveredBinding,Kind,ParentNodeType,RecoverFlag,InnerCatch,ParentTryStartLine,Logged,MultiLog,Abort,Default,GetCause,OtherInvocation,NumThrown,NumThrowNew,NumThrowWrapCurrentException,Return,Continue,EmptyBlock,CatchException,FinallyThrowing,NumMethod,NumMethodsNotBinded,NumDistinctExceptions,NumSpecificHandler,NumSubsumptionHandler,NumSupersumptionHandler,NumOtherHandler,MaxLevel,IsXMLSemantic,IsXMLSyntax,IsThrow,ToDo,ExceptionType,ParentMethod,ParentType,FilePath
-1,15,8,24,4,11,18,1,0,0,8878,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,4,0,9,1,0,1,7,4,7,1,3,0,System.IO.PathTooLongException,"Person(string)",NTratch.test.Person,..\NTratch\NTratch\test\Class1.cs
-2,69,4,74,4,66,13,1,0,0,8875,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,System.IO.PathTooLongException,"m2()",NTratch.test.Person,..\NTratch\NTratch\test\Class1.cs
-
-3,57,4,62,3,54,12,-9,-9,-9,8875,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,-9,0,0,0,1,0,0,0,0,0,0,0,1,0,!NO_EXCEPTION_DECLARED!,"m30()",NTratch.test.Person,..\NTratch\NTratch\test\Class1.cs
-
