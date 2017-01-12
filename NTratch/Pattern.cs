@@ -11,10 +11,13 @@ namespace NTratch
         public Dictionary<string, int> CodeStats;
         public List<CatchBlock> CatchBlockList;
         //public List<APICall> APICallList;
+        public List<PossibleExceptionsBlock> PossibleExceptionsBlockList;
 
         public TreeStatistics()
         {
             CodeStats = new Dictionary<string, int>();
+
+            CodeStats.Add("NumFiles", 0);
 
             CodeStats.Add("NumLOC", 0);
             CodeStats.Add("NumCatchBlock", 0);
@@ -28,6 +31,10 @@ namespace NTratch
             CodeStats.Add("NumExceptionTypeCatch", 0);
 
             CodeStats.Add("NumRecoveredBinding", 0);
+                        
+            CodeStats.Add("NumPossibleExceptionsBlock", 0);
+            
+            CodeStats.Add("NumMethodDeclaration", 0);
 
             //CodeStats.Add("NumLoggedLOC", 0);
             //CodeStats.Add("NumCall", 0);
@@ -66,12 +73,14 @@ namespace NTratch
         public List<Tuple<SyntaxTree, TreeStatistics>> TreeStats;
         public CatchDic CatchBlocks;
         //public CallDic APICalls;
+        public PossibleExceptionsDic PossibleExceptionsBlocks;
 
         public CodeStatistics(List<Tuple<SyntaxTree, TreeStatistics>> codeStatsList)
         {
             TreeStats = codeStatsList;
             CatchBlocks = new CatchDic();
             //APICalls = new CallDic();
+            PossibleExceptionsBlocks = new PossibleExceptionsDic();
             CodeStats = new Dictionary<string, int>();
             foreach (var treetuple in codeStatsList)
             {
@@ -84,19 +93,30 @@ namespace NTratch
                 //{
                 //    APICalls.Add(treetuple.Item2.APICallList);
                 //}
-                if (treetuple.Item2.CodeStats != null) 
+                if (treetuple.Item2.PossibleExceptionsBlockList != null)
+                {
+                    PossibleExceptionsBlocks.Add(treetuple.Item2.PossibleExceptionsBlockList);
+                }
+                if (treetuple.Item2.CodeStats != null)
                 {
                     CodeAnalyzer.MergeDic<String>(ref CodeStats, treetuple.Item2.CodeStats);
                 }
             }
-            CodeStats["NumExceptionTypeCatch"] = CatchBlocks.Count;
-            CodeStats["NumLoggedCatchBlock"] = CatchBlocks.NumLogged;
 
-            CodeStats["NumBinded"] = CatchBlocks.NumBinded;
-            CodeStats["NumNoDeclaration"] = CatchBlocks.NumNoDeclaration;
-            CodeStats["NumRecoveredBinding"] = CatchBlocks.NumRecoveredBinding;
-            CodeStats["NumMethodsNotBinded"] = CatchBlocks.NumMethodsNotBinded;
+            if (CatchBlocks.Count > 0)
+            {
+                CodeStats["NumExceptionTypeCatch"] = CatchBlocks.Count;
+                CodeStats["NumLoggedCatchBlock"] = CatchBlocks.NumLogged;
+                CodeStats["NumBinded"] = CatchBlocks.NumBinded;
+                CodeStats["NumNoDeclaration"] = CatchBlocks.NumNoDeclaration;
+                CodeStats["NumRecoveredBinding"] = CatchBlocks.NumRecoveredBinding;
+                CodeStats["NumMethodsNotBinded"] = CatchBlocks.NumMethodsNotBinded;
+            }
 
+            if (PossibleExceptionsBlocks.Count > 0)
+            {
+                CodeStats["NumPossibleExceptions"] = PossibleExceptionsBlocks.Count;
+            }
 
             //CodeStats["NumCallType"] = APICalls.Count;
             //CodeStats["NumAPICall"] = APICalls.NumAPICall;
@@ -124,10 +144,14 @@ namespace NTratch
                 CatchBlocks.PrintToFileCSV();
             }
             //APICalls.PrintToFile();
+            if (PossibleExceptionsBlocks.Count > 0)
+            {
+                PossibleExceptionsBlocks.PrintToFileCSV();
+            }
         }
     }
 
-    class CommonFeature
+    public class CommonFeature
     {
         public Dictionary<string, int> OperationFeatures;
         //public Dictionary<String, int> TextFeatures; //TextFeatures is only on the API call
@@ -190,7 +214,7 @@ namespace NTratch
             return metaInfo;
         }
 
-        public string PrintFeaturesCSV()
+        public virtual string PrintFeaturesCSV()
         {
             string csv = "";
 
@@ -230,7 +254,7 @@ namespace NTratch
     {
         public static List<string> MetaKeys;
         public static List<string> OpFeaturesKeys;
-
+        
         public CatchBlock() : base() 
         {
             //Binding info and binding based:
@@ -532,6 +556,122 @@ namespace NTratch
             Logger.Log("Writing done.");
         }
     }
+    public class PossibleExceptionsBlock : CommonFeature
+    {
+        public string CaughtType;
+        public string InvokedMethod;
+        public int InvokedMethodLine;
+        public string DeclaringMethod;
 
+        public static List<string> MetaKeys;
+        public static List<string> OpFeaturesKeys;
+
+        public PossibleExceptionsBlock() : base()
+        {
+            OperationFeatures.Add("Kind", 0);
+            OperationFeatures.Add("IsDocSemantic", 0);
+            OperationFeatures.Add("IsDocSyntax", 0);
+            OperationFeatures.Add("IsThrow", 0);
+            OperationFeatures.Add("HandlerTypeCode", 0);
+            OperationFeatures.Add("LevelFound", 0);
+
+            //MetaInfo.Add("PossibleExceptionsBlock", "'-PossibleExceptionsBlock");
+
+            MetaKeys = MetaInfo.Keys.ToList();
+            OpFeaturesKeys = OperationFeatures.Keys.ToList();
+        }
+
+        public override string PrintFeaturesCSV()
+        {
+            string csv = "";
+
+            foreach (var key in OperationFeatures.Keys)
+            {
+                csv += (OperationFeatures[key] + ",");
+            }
+
+            csv += (ExceptionType + ",");
+            csv += (CaughtType + ",");
+            csv += (DeclaringMethod + ",");
+            csv += (InvokedMethod + ",");
+            csv += (InvokedMethodLine + ",");
+            csv += (FilePath + ",");
+            csv += (StartLine);
+
+            return csv;
+        }
+    }
+    public class PossibleExceptionsList : List<PossibleExceptionsBlock>
+    {
+
+    }
+
+    public class PossibleExceptionsDic : Dictionary<string, PossibleExceptionsList>
+    {
+        public int NumPossibleExceptions = 0;
+
+        public void Add(List<PossibleExceptionsBlock> possibleExceptionsList)
+        {
+            foreach (PossibleExceptionsBlock possibleExceptionsBlock in possibleExceptionsList)
+            {
+                if (possibleExceptionsBlock == null) continue;
+                NumPossibleExceptions++;
+                string exception = possibleExceptionsBlock.ExceptionType;
+                if (this.ContainsKey(exception))
+                {
+                    this[exception].Add(possibleExceptionsBlock);
+                }
+                else
+                {
+                    //Create a new list for this type.
+                    this.Add(exception, new PossibleExceptionsList());
+                    this[exception].Add(possibleExceptionsBlock);
+                }
+            }
+        }
+
+        public void PrintToFileCSV()
+        {
+
+            Logger.Log("Writing CatchBlock features into file...");
+            StreamWriter csvSW = new StreamWriter(IOFile.CompleteFileNameOutput("PossibleExceptionsBlock.csv"));
+            StreamWriter metaCSVSW = new StreamWriter(IOFile.CompleteFileNameOutput("PossibleExceptionsBlock_Meta.csv"));
+
+            int catchId = 0;
+            string metaKey = "";
+
+            foreach (var meta in PossibleExceptionsBlock.MetaKeys)
+            {
+                metaKey += (meta + ",");
+            }
+
+            string OpFeaturesKey = "";
+
+            foreach (var OpFeature in PossibleExceptionsBlock.OpFeaturesKeys)
+            {
+                OpFeaturesKey += (OpFeature + ",");
+            }
+
+            csvSW.WriteLine("id," + OpFeaturesKey + "ThrownType,CaughtType,DeclaringMethod,InvokedMethod,InvokedMethodLine,CatchFilePath,CatchStartLine");
+            metaCSVSW.WriteLine("id," + metaKey);
+
+            foreach (string exception in this.Keys)
+            {
+                PossibleExceptionsList possibleExceptionsList = this[exception];
+                foreach (var possibleExceptionsBlock in possibleExceptionsList)
+                {
+                    catchId++;
+                    csvSW.WriteLine(catchId + "," + possibleExceptionsBlock.PrintFeaturesCSV());
+                    metaCSVSW.WriteLine(catchId + "," + possibleExceptionsBlock.PrintMetaInfoCSV());
+                }
+                csvSW.Flush();
+                metaCSVSW.Flush();
+            }
+
+            csvSW.Close();
+            metaCSVSW.Close();
+            Logger.Log("Writing done.");
+        }
+    }
 }
 

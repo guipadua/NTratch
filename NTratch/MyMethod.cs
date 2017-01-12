@@ -11,9 +11,6 @@ namespace NTratch
     {
         public string Name { get; set; }
         public BaseMethodDeclarationSyntax Declaration { get; set; }
-        public Dictionary<string, Dictionary<string, sbyte>> Exceptions { get; set; } = new Dictionary<string, Dictionary<string, sbyte>>();
-        public int ChildrenMaxLevel { get; set; } = 0;
-        public bool IsVisited { get; set; } = false;
         
         public MyMethod(string Name, BaseMethodDeclarationSyntax Declaration)
         {
