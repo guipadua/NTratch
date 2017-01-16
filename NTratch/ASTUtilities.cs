@@ -47,44 +47,44 @@ class ASTUtilities
         return FindParentType(parentNode, model);
     }
 
-    public static string FindParentMethodName(SyntaxNode parentNode)
-    {
-        string parentMethodName;
-        if (parentNode.IsKind(SyntaxKind.MethodDeclaration))
-        {
-            MethodDeclarationSyntax parentMethod = parentNode as MethodDeclarationSyntax;
+    //public static string FindParentMethodName(SyntaxNode parentNode)
+    //{
+    //    string parentMethodName;
+    //    if (parentNode.IsKind(SyntaxKind.MethodDeclaration))
+    //    {
+    //        MethodDeclarationSyntax parentMethod = parentNode as MethodDeclarationSyntax;
 
-            parentMethodName = '"' + parentMethod.Identifier.ToString();
-            parentMethodName += "(";
+    //        parentMethodName = '"' + parentMethod.Identifier.ToString();
+    //        parentMethodName += "(";
 
-            foreach (var param in parentMethod.ParameterList.Parameters)
-            {
-                parentMethodName += param.Type.ToString() + ";";
-            }
-            parentMethodName += ")" + '"';
+    //        foreach (var param in parentMethod.ParameterList.Parameters)
+    //        {
+    //            parentMethodName += param.Type.ToString() + ";";
+    //        }
+    //        parentMethodName += ")" + '"';
 
-            parentMethodName = parentMethodName.Replace(";)", ")");
-        }
-        else if (parentNode.IsKind(SyntaxKind.ConstructorDeclaration))
-        {
-            ConstructorDeclarationSyntax parentConstructor = parentNode as ConstructorDeclarationSyntax;
+    //        parentMethodName = parentMethodName.Replace(";)", ")");
+    //    }
+    //    else if (parentNode.IsKind(SyntaxKind.ConstructorDeclaration))
+    //    {
+    //        ConstructorDeclarationSyntax parentConstructor = parentNode as ConstructorDeclarationSyntax;
 
-            parentMethodName = '"' + parentConstructor.Identifier.ToString();
-            parentMethodName += "(";
+    //        parentMethodName = '"' + parentConstructor.Identifier.ToString();
+    //        parentMethodName += "(";
 
-            foreach (var param in parentConstructor.ParameterList.Parameters)
-            {
-                parentMethodName += param.Type.ToString() + ";";
-            }
-            parentMethodName += ")" + '"';
+    //        foreach (var param in parentConstructor.ParameterList.Parameters)
+    //        {
+    //            parentMethodName += param.Type.ToString() + ";";
+    //        }
+    //        parentMethodName += ")" + '"';
 
-            parentMethodName = parentMethodName.Replace(";)", ")");
-        }
-        else
-            parentMethodName = "!UNEXPECTED_KIND!"; //there might be other cases like the initializer one for java
+    //        parentMethodName = parentMethodName.Replace(";)", ")");
+    //    }
+    //    else
+    //        parentMethodName = "!UNEXPECTED_KIND!"; //there might be other cases like the initializer one for java
 
-        return parentMethodName;
-    }
+    //    return parentMethodName;
+    //}
 
     public static string GetMethodName(SyntaxNode node,
             Dictionary<SyntaxTree, SemanticModel> treeAndModelDic, Compilation compilation)
@@ -99,23 +99,13 @@ class ASTUtilities
                 methodName = methodNameFromSymbol;
             else
             {
-                string identifier;
-                if (node.IsKind(SyntaxKind.MethodDeclaration))
-                {
-                    MethodDeclarationSyntax nodeMethod = node as MethodDeclarationSyntax;
-                    identifier = nodeMethod.Identifier.ToString();
-                } else
-                {
-                    ConstructorDeclarationSyntax nodeConstructor = node as ConstructorDeclarationSyntax;
-                    identifier = nodeConstructor.Identifier.ToString();
-                }
-                methodName = GetMethodNameWithoutBinding(method, identifier, false);
+                methodName = GetMethodNameWithoutBinding(method, GetMethodIdentifier(node));
             }
         }
-        //else if (node.IsKind(SyntaxKind.))
-        //{
-        //    methodName = "!NAME_NA!"; //name not applicable
-        //}
+        else if (node.IsKind(SyntaxKind.ClassDeclaration))
+        {
+            methodName = "!USE_PARENT!"; //name not applicable
+        }
         else
             methodName = "!UNEXPECTED_KIND!";
 
@@ -183,18 +173,39 @@ class ASTUtilities
         return nodeSymbol;
     }
 
-    public static string GetMethodNameWithoutBinding(BaseMethodDeclarationSyntax method, string identifier, bool quotes)
+    public static string GetMethodIdentifier(SyntaxNode node)
+    {
+        string identifier = ""; ;
+        if (node.IsKind(SyntaxKind.MethodDeclaration))
+        {
+            MethodDeclarationSyntax nodeMethod = node as MethodDeclarationSyntax;
+            identifier = nodeMethod.Identifier.ToString();
+        }
+        else if (node.IsKind(SyntaxKind.MethodDeclaration))
+        {
+            ConstructorDeclarationSyntax nodeConstructor = node as ConstructorDeclarationSyntax;
+            identifier = nodeConstructor.Identifier.ToString();
+        }
+        else if (node.IsKind(SyntaxKind.MethodDeclaration))
+        {
+            ClassDeclarationSyntax nodeClass = node as ClassDeclarationSyntax;
+            identifier = nodeClass.Identifier.ToString();
+        }
+        return identifier;
+    }
+
+    public static string GetMethodNameWithoutBinding(BaseMethodDeclarationSyntax method, string identifier)
     {
         string methodName;
 
-        methodName = ((quotes) ? "\"" : "") + identifier;
+        methodName = identifier;
         methodName += "(";
 
         foreach (var param in method.ParameterList.Parameters)
         {
             methodName += param.Type.ToString() + ";";
         }
-        methodName += ")" + ((quotes) ? "\"" : "");
+        methodName += ")";
 
         methodName = methodName.Replace(";)", ")");
         

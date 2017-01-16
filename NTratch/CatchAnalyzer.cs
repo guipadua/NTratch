@@ -106,7 +106,7 @@ namespace NTratch
 
             //Common Features - parent method name
             SyntaxNode parentNode = ASTUtilities.FindParentMethod(tryBlock);
-            catchBlockInfo.ParentMethod = ASTUtilities.FindParentMethodName(parentNode);
+            catchBlockInfo.ParentMethod = ASTUtilities.GetMethodName(parentNode, TreeAndModelDic, Compilation); ;
             catchBlockInfo.MetaInfo["ParentMethod"] = catchBlockInfo.ParentMethod;
 
             //Common Features

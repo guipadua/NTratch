@@ -222,10 +222,10 @@ namespace NTratch
             {
                 csv += (OperationFeatures[key] + ",");
             }
-            csv += (ExceptionType + ",");
-            csv += (ParentMethod + ",");
-            csv += (ParentType + ",");
-            csv += (FilePath + ",");
+            csv += (CleanQuotesCSV(ExceptionType) + ",");
+            csv += (CleanQuotesCSV(ParentMethod) + ",");
+            csv += (CleanQuotesCSV(ParentType) + ",");
+            csv += (CleanQuotesCSV(FilePath) + ",");
             csv += (StartLine);
 
             return csv;
@@ -237,7 +237,7 @@ namespace NTratch
 
             foreach (var key in MetaInfo.Keys)
             {
-                csv += '"' + (MetaInfo[key].Replace(("" + '"'), "") + '"' + ",");
+                csv += (CleanQuotesCSV(MetaInfo[key]) + ",");
             }
             //        csv += (ExceptionType + ",");
             //        csv += (ParentMethod + ",");
@@ -246,6 +246,11 @@ namespace NTratch
             //        csv += (StartLine);
 
             return csv;
+        }
+
+        public static string CleanQuotesCSV (string csv)
+        {
+            return '"' + csv.Replace(("" + '"'), "") + '"';
         }
 
     }
@@ -590,12 +595,12 @@ namespace NTratch
                 csv += (OperationFeatures[key] + ",");
             }
 
-            csv += (ExceptionType + ",");
-            csv += (CaughtType + ",");
-            csv += (DeclaringMethod + ",");
-            csv += (InvokedMethod + ",");
+            csv += (CleanQuotesCSV(ExceptionType) + ",");
+            csv += (CleanQuotesCSV(CaughtType) + ",");
+            csv += (CleanQuotesCSV(DeclaringMethod) + ",");
+            csv += (CleanQuotesCSV(InvokedMethod) + ",");
             csv += (InvokedMethodLine + ",");
-            csv += (FilePath + ",");
+            csv += (CleanQuotesCSV(FilePath) + ",");
             csv += (StartLine);
 
             return csv;
