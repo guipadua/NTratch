@@ -8,8 +8,9 @@ namespace NTratch
         private string Key;
         private HashSet<ExceptionFlow> ExceptionFlowSet  = new HashSet<ExceptionFlow>();
         private int ChildrenMaxLevel = 0;
-        private bool Visited = false;
         private bool Binded = false;
+        private bool Declared = false;
+        private bool ExternalDocPresent = false;
 
         public InvokedMethod(string key, bool binded) : base()
         {
@@ -84,24 +85,34 @@ namespace NTratch
             ChildrenMaxLevel = childrenMaxLevel;
         }
 
-        public bool isVisited()
-        {
-            return Visited;
-        }
-
-        public void setVisited(bool Visited)
-        {
-            this.Visited = Visited;
-        }
-
         public bool isBinded()
         {
             return Binded;
         }
-
+        
         public void setBinded(bool binded)
         {
             Binded = binded;
+        }
+
+        public void setDeclared(bool declared)
+        {
+            Declared = declared;
+        }
+
+        public bool isDeclared()
+        {
+            return Declared;
+        }
+
+        public bool isExternalDocPresent()
+        {
+            return ExternalDocPresent;
+        }
+
+        public void setExternalDocPresent(bool externalDocPresent)
+        {
+            ExternalDocPresent = externalDocPresent;
         }
     }    
 }

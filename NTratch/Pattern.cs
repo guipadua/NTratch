@@ -24,17 +24,29 @@ namespace NTratch
 
             CodeStats.Add("NumBinded", 0);
             CodeStats.Add("NumNoDeclaration", 0);
-
             CodeStats.Add("NumMethodsNotBinded", 0);
-
             CodeStats.Add("NumLoggedCatchBlock", 0);
-            CodeStats.Add("NumExceptionTypeCatch", 0);
-
+            CodeStats.Add("NumDistinctExceptionTypeCatch", 0);
             CodeStats.Add("NumRecoveredBinding", 0);
-                        
-            CodeStats.Add("NumPossibleExceptionsBlock", 0);
+
+            //From process compilation
+            CodeStats.Add("NumPossibleExceptionBlock", 0);
             
-            CodeStats.Add("NumMethodDeclaration", 0);
+                   //From collection of possible exceptions blocks per AST - roll-up
+            CodeStats.Add("NumDistinctPossibleExceptions", 0);
+            
+                    //From CodeAnalyzer - global method storages:
+            CodeStats.Add("NumDeclaredMethods", 0);
+            CodeStats.Add("NumInvokedMethods", 0);
+            CodeStats.Add("NumInvokedMethodsBinded", 0);
+            CodeStats.Add("NumInvokedMethodsDeclared", 0);
+            CodeStats.Add("NumInvokedMethodsExtDocPresent", 0);
+
+            //From process compilation
+            CodeStats.Add("NumThrowsBlock", 0);
+            
+            //From collection of possible exceptions blocks per AST - roll-up
+            CodeStats.Add("NumDistinctExceptionTypeThrows", 0);
 
             //CodeStats.Add("NumLoggedLOC", 0);
             //CodeStats.Add("NumCall", 0);
@@ -105,17 +117,17 @@ namespace NTratch
 
             if (CatchBlocks.Count > 0)
             {
-                CodeStats["NumExceptionTypeCatch"] = CatchBlocks.Count;
-                CodeStats["NumLoggedCatchBlock"] = CatchBlocks.NumLogged;
                 CodeStats["NumBinded"] = CatchBlocks.NumBinded;
-                CodeStats["NumNoDeclaration"] = CatchBlocks.NumNoDeclaration;
-                CodeStats["NumRecoveredBinding"] = CatchBlocks.NumRecoveredBinding;
                 CodeStats["NumMethodsNotBinded"] = CatchBlocks.NumMethodsNotBinded;
+                CodeStats["NumLoggedCatchBlock"] = CatchBlocks.NumLogged;
+                CodeStats["NumDistinctExceptionTypeCatch"] = CatchBlocks.Count;
+                CodeStats["NumRecoveredBinding"] = CatchBlocks.NumRecoveredBinding;
+                CodeStats["NumNoDeclaration"] = CatchBlocks.NumNoDeclaration;
             }
 
             if (PossibleExceptionsBlocks.Count > 0)
             {
-                CodeStats["NumPossibleExceptions"] = PossibleExceptionsBlocks.Count;
+                CodeStats["NumDistinctPossibleExceptions"] = PossibleExceptionsBlocks.Count;
             }
 
             //CodeStats["NumCallType"] = APICalls.Count;
@@ -266,6 +278,7 @@ namespace NTratch
             OperationFeatures.Add("Binded", -9);
             OperationFeatures.Add("RecoveredBinding", -9);
             OperationFeatures.Add("Kind", -9);
+            OperationFeatures.Add("Checked", 0);
 
             //Try info
             MetaInfo.Add("TryBlock", "'-tryblock");
@@ -475,89 +488,6 @@ namespace NTratch
 
             csvSW.Close();
             metaCSVSW.Close();
-            Logger.Log("Writing done.");
-        }
-        public void PrintToFileTXT()
-        {
-            Logger.Log("Writing CatchBlock features into file...");
-            StreamWriter sw = new StreamWriter(IOFile.CompleteFileNameOutput("CatchBlock.txt"));
-            StreamWriter metaSW = new StreamWriter(IOFile.CompleteFileNameOutput("CatchBlock_Meta.txt"));
-            
-            int catchId = 0;
-
-            string metaKey = CatchBlock.Splitter;
-            foreach (var meta in CatchBlock.MetaKeys)
-            {
-                metaKey += (meta + CatchBlock.Splitter);
-            }
-
-            string OpFeaturesKey = "";
-            foreach (var OpFeature in CatchBlock.OpFeaturesKeys)
-            {
-                OpFeaturesKey += (OpFeature + ",");
-            }
-
-            metaSW.WriteLine(metaKey);
-            metaSW.WriteLine("'--------------------------------------------------------");
-            metaSW.WriteLine("NumExceptionType: {0}, NumCatchBlock: {1}, NumLogged: {2}, "
-                    + "NumThrown: {3}, NumLoggedAndThrown: {4}, NumLoggedNotThrown: {5}.",
-                    this.Count,
-                    NumCatch,
-                    NumLogged,
-                    NumThrown,
-                    NumLoggedAndThrown,
-                    NumLoggedNotThrown);
-            metaSW.WriteLine();
-
-            foreach (string exception in this.Keys)
-            {
-                metaSW.WriteLine("'--------------------------------------------------------");
-                CatchList catchList = this[exception];
-                metaSW.WriteLine("Exception Type [{0}]: NumCatchBlock: {1}, NumLogged: {2}, "
-                        + "NumThrown: {3}, NumLoggedAndThrown: {4}, NumLoggedNotThrown: {5}.",
-                        exception,
-                        catchList.Count,
-                        catchList.NumLogged,
-                        catchList.NumThrown,
-                        catchList.NumLoggedAndThrown,
-                        catchList.NumLoggedNotThrown
-                        );
-                foreach (var catchblock in catchList)
-                {
-                    catchId++;
-                    sw.WriteLine("ID:" + catchId + CatchBlock.Splitter + catchblock.PrintFeatures());
-                    metaSW.WriteLine("ID:" + catchId + CatchBlock.Splitter + catchblock.PrintMetaInfo());
-                }
-                metaSW.WriteLine();
-                metaSW.WriteLine();
-                sw.Flush();
-                metaSW.Flush();
-            }
-
-            //Print summary
-            metaSW.WriteLine("'------------------------ Summary -------------------------");
-            metaSW.WriteLine("{0}\t{1}\t{2}\t{3}\t{4}\t{5}",
-                    "Exception Type",
-                    "NumCatch",
-                    "NumLogged",
-                    "NumThrown",
-                    "NumLoggedAndThrown",
-                    "NumLoggedNotThrown");
-
-            foreach (string exception in this.Keys)
-            {
-                var catchList = this[exception];
-                metaSW.WriteLine("{0}\t{1}\t{2}\t{3}\t{4}\t{5}",
-                        exception,
-                        catchList.Count,
-                        catchList.NumLogged,
-                        catchList.NumThrown,
-                        catchList.NumLoggedAndThrown,
-                        catchList.NumLoggedNotThrown
-                        );
-            }
-            sw.Close();
-            metaSW.Close();
             Logger.Log("Writing done.");
         }
     }

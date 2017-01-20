@@ -44,7 +44,15 @@ namespace NTratch
 			// Log statistics
 			Logger.Log("Num of syntax nodes: " + treeNode.Sum());
 			Logger.Log("Num of source files: " + numFiles);
-			allStats.PrintSatistics();
+
+            allStats.CodeStats["NumFiles"] = numFiles;
+            allStats.CodeStats["NumDeclaredMethods"] = AllMyMethods.Count;
+            allStats.CodeStats["NumInvokedMethods"] = InvokedMethods.Count;
+            allStats.CodeStats["NumInvokedMethodsBinded"] = (int)InvokedMethods.Values.Count(method => method.isBinded());
+            allStats.CodeStats["NumInvokedMethodsDeclared"] = (int)InvokedMethods.Values.Count(method => method.isDeclared());
+            allStats.CodeStats["NumInvokedMethodsExtDocPresent"] = (int)InvokedMethods.Values.Count(method => method.isExternalDocPresent());
+            
+            allStats.PrintSatistics();
 
 			// Save all the source code into a txt file
 			bool saveAllSource = false;
@@ -124,15 +132,17 @@ namespace NTratch
             stats.CatchBlockList = catchAnalyzer.Catches;
             stats.PossibleExceptionsBlockList = catchAnalyzer.PossibleExceptionsList;
 
-			//// Statistics and features of (checked) API calls
-			//if (callList.Count() > 0)
-			//{
-			//    stats.APICallList = callList
-			//        .Select(apicall => AnalyzeAnAPICall(apicall, treeAndModelDic,
-			//        compilation)).ToList();
-			//}
+            stats.CodeStats["NumPossibleExceptionBlock"] = catchAnalyzer.PossibleExceptionsList.Count;
 
-			return new Tuple<SyntaxTree, TreeStatistics>(tree, stats);
+            //// Statistics and features of (checked) API calls
+            //if (callList.Count() > 0)
+            //{
+            //    stats.APICallList = callList
+            //        .Select(apicall => AnalyzeAnAPICall(apicall, treeAndModelDic,
+            //        compilation)).ToList();
+            //}
+
+            return new Tuple<SyntaxTree, TreeStatistics>(tree, stats);
 		}
         
 		public static Dictionary<string, MyMethod> GetAllMethodDeclarations(SyntaxTree tree,

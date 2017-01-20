@@ -4,8 +4,9 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using NTratch;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
-class ASTUtilities
+public static class ASTUtilities
 {
     public static SyntaxNode FindParent(SyntaxNode node)
     {
@@ -155,7 +156,7 @@ class ASTUtilities
             if (nodeSymbol == null)
             {
                 model = compilation.GetSemanticModel(tree);
-                nodeSymbol = model.GetSymbolInfo(node).Symbol;
+                nodeSymbol = GetAnySymbol(model.GetSymbolInfo(node));
             }
         }
         catch
@@ -163,7 +164,7 @@ class ASTUtilities
             try
             {
                 model = compilation.GetSemanticModel(tree);
-                nodeSymbol = model.GetSymbolInfo(node).Symbol;
+                nodeSymbol = GetAnySymbol(model.GetSymbolInfo(node));
             }
             catch {
                 Logger.Log("WARN - symbol not found for node: " + node.ToString());
@@ -171,6 +172,20 @@ class ASTUtilities
         }
 
         return nodeSymbol;
+    }
+
+    public static ISymbol GetAnySymbol(this SymbolInfo info)
+    {
+        if(info.Symbol != null)
+        {
+            return info.Symbol;            
+        } else
+        {
+            Logger.Log("WARN - Multiple Symbol Candidates - First or Default used!: " + info.CandidateReason.ToString());
+            return info.CandidateSymbols.FirstOrDefault();
+        }
+
+        
     }
 
     public static string GetMethodIdentifier(SyntaxNode node)

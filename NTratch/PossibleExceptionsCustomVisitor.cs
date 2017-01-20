@@ -319,7 +319,7 @@ namespace NTratch
 
                 if (nodemDeclar != null)
                 {
-                    invokedMethod.setVisited(true);
+                    invokedMethod.setDeclared(true);
                     PossibleExceptionsCustomVisitor possibleExceptionsCustomVisitor = new PossibleExceptionsCustomVisitor(m_compilation, m_treeAndModelDic, (byte)(m_myLevel + 1), false, nodeString);
                     possibleExceptionsCustomVisitor.Visit(nodemDeclar);
 
@@ -339,7 +339,9 @@ namespace NTratch
 
         private void collectBindedInvokedMethodDataFromSemanticModel(InvokedMethod invokedMethod, ISymbol nodeBindingInfo, string nodeString)
         {
-            invokedMethod.getExceptionFlowSet().UnionWith(GetExceptionsFromXMLSemantic(nodeBindingInfo, nodeString));
+            bool docPresent = false;
+            invokedMethod.getExceptionFlowSet().UnionWith(GetExceptionsFromXMLSemantic(nodeBindingInfo, nodeString, ref docPresent));
+            invokedMethod.setExternalDocPresent(docPresent);
         }
 
         private void initializeLocalVisitInfo(string nodeString, bool binded)
@@ -362,7 +364,7 @@ namespace NTratch
             
         }
         
-        private HashSet<ExceptionFlow> GetExceptionsFromXMLSemantic(ISymbol p_nodeSymbol, string originalNode)
+        private HashSet<ExceptionFlow> GetExceptionsFromXMLSemantic(ISymbol p_nodeSymbol, string originalNode, ref bool docPresent)
         {
             // // Exceptions from the XML found on the Semantic model - IsXMLSemantic
             var xmlTextSemantic = p_nodeSymbol.GetDocumentationCommentXml();
@@ -370,7 +372,8 @@ namespace NTratch
             {   // // recover by using the overall semantic model
                 //xmlTextSemantic = m_compilation.GetSemanticModel(p_node.SyntaxTree).GetSymbolInfo(p_node).Symbol?.GetDocumentationCommentXml();
                 Logger.Log("WARN - empty xml: " + originalNode);
-            }
+            } else
+                docPresent = true;
             return NodeFindExceptionsInXML(xmlTextSemantic, ExceptionFlow.DOC_SEMANTIC, originalNode);            
         }
 

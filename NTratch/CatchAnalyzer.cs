@@ -708,7 +708,7 @@ namespace NTratch
                 {
                     try
                     {
-                        var symbol = semanticModel.GetSymbolInfo(recoverStatement).Symbol as ILocalSymbol;
+                        var symbol = ASTUtilities.GetAnySymbol(semanticModel.GetSymbolInfo(recoverStatement)) as ILocalSymbol;
                         string typeName = symbol.Type.ToString();
                         if (typeName.Contains("Exception"))
                         {
