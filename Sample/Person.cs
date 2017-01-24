@@ -23,6 +23,7 @@ namespace NTratch.test
             catch (PathTooLongException ex)
             {
                 //I'm the catch 22
+
                 Console.WriteLine("someone tried to load a path which is too long!" + ex.Message);
                 try
                 {
@@ -35,8 +36,12 @@ namespace NTratch.test
             }
             catch (InternalBufferOverflowException ex)
             {
-                //I'm the catch 22
-                Console.WriteLine("someone tried to load a path which is too long!" + ex.Message);
+                //boffe morre aqui 1
+                //boffe morre aqui 2
+                //boffe morre aqui 3
+
+
+                //boffe morre aqui 4
             }
             finally
             {
@@ -61,8 +66,7 @@ namespace NTratch.test
                 PersonExtra.m600();
                 throw new AccessViolationException(); // I will escape that catch! ha!
             }
-            catch (PathTooLongException ex)
-            {
+            catch (PathTooLongException ex){
                 Console.WriteLine("mama, she called that long file again!");
                 // I will tell mama if you do that again 
             }

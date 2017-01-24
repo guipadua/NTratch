@@ -301,6 +301,54 @@ namespace NTratch
     }
 
     /// <summary>
+    /// Remove the trivia (comments, white spaces, etc) of a code snippet
+    /// </summary>
+    public class CommentTriviaRemover : CSharpSyntaxRewriter
+    {
+        public override SyntaxTrivia VisitTrivia(SyntaxTrivia trivia)
+        {
+            var newTrivia = trivia;
+            if (trivia.IsKind(SyntaxKind.SingleLineCommentTrivia) ||
+                trivia.IsKind(SyntaxKind.MultiLineCommentTrivia))
+            {
+                newTrivia = default(SyntaxTrivia);
+            }
+            return newTrivia;
+        }
+    }
+
+    public class CommentAndRedudantTrailingWhitespaceRemover : CSharpSyntaxRewriter
+    {
+        public override SyntaxToken VisitToken(SyntaxToken token)
+        {
+            return token
+                .WithLeadingTrivia(RemoveRedundantTrailingWhitespace(token.LeadingTrivia))
+                .WithTrailingTrivia(RemoveRedundantTrailingWhitespace(token.TrailingTrivia));
+        }
+
+        private SyntaxTriviaList RemoveRedundantTrailingWhitespace(SyntaxTriviaList oldTriviaList)
+        {
+            var newTriviaList = new List<SyntaxTrivia>();
+            var outSyntaxTriviaList = new SyntaxTriviaList();
+
+            for (var i = 0; i < oldTriviaList.Count; ++i)
+            {
+                var isRedundantWhitespace =
+                    i + 1 < oldTriviaList.Count &&
+                    oldTriviaList[i].IsKind(SyntaxKind.WhitespaceTrivia) &&
+                    oldTriviaList[i + 1].IsKind(SyntaxKind.EndOfLineTrivia);
+
+                if (!isRedundantWhitespace)
+                {
+                    newTriviaList.Add(oldTriviaList[i]);                    
+                }
+            }
+            outSyntaxTriviaList = outSyntaxTriviaList.AddRange(newTriviaList);
+            return outSyntaxTriviaList;
+        }
+    }
+
+    /// <summary>
     /// Remove the try-catch block of a code snippet
     /// </summary>
     public class TryStatementRemover : CSharpSyntaxRewriter

@@ -182,13 +182,16 @@ namespace NTratch
             OperationFeatures = new Dictionary<string, int>();
             MetaInfo = new Dictionary<string, string>();
 
-            OperationFeatures.Add("TryLine", 0);
+            OperationFeatures.Add("TryStartLine", 0);
+            OperationFeatures.Add("TryEndLine", 0);
             OperationFeatures.Add("TryLOC", 0);
-            OperationFeatures.Add("CatchLine", 0);
+            OperationFeatures.Add("CatchStartLine", 0);
+            OperationFeatures.Add("CatchEndLine", 0);
             OperationFeatures.Add("CatchLOC", 0);
             OperationFeatures.Add("CatchStart", 0);
             OperationFeatures.Add("CatchLength", 0);
-            OperationFeatures.Add("MethodLine", 0);
+            OperationFeatures.Add("MethodStartLine", 0);
+            OperationFeatures.Add("MethodEndLine", 0);
             OperationFeatures.Add("MethodLOC", 0);
 
             MetaInfo.Add("FilePath", "'-filepath");

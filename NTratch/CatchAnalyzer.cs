@@ -19,7 +19,7 @@ namespace NTratch
         public List<PossibleExceptionsBlock> PossibleExceptionsList { get; } = new List<PossibleExceptionsBlock>();
 
         public static TryStatementRemover tryblockremover = new TryStatementRemover();
-
+        
         Dictionary<SyntaxTree, SemanticModel> TreeAndModelDic { get; set; }
         Compilation Compilation { get; set; }
 
@@ -35,7 +35,7 @@ namespace NTratch
 
             var tree = catchblock.SyntaxTree;
             var model = TreeAndModelDic[tree];
-
+                        
             TypeSyntax exceptionTypeSyntax = null;
             INamedTypeSymbol exceptionNamedTypeSymbol = null;
 
@@ -74,20 +74,24 @@ namespace NTratch
             catchBlockInfo.MetaInfo["ParentNodeType"] = ASTUtilities.FindParent(tryBlock).Kind().ToString();
 
             //Common Features - try/catch block
+            var tryNoTriviaCount = ASTUtilities.countLines(tryBlock.Block) - 2;
             var tryFileLinePositionSpan = tree.GetLineSpan(tryBlock.Block.Span);
             var tryStartLine = tryFileLinePositionSpan.StartLinePosition.Line + 1;
             var tryEndLine = tryFileLinePositionSpan.EndLinePosition.Line + 1;
-
-            catchBlockInfo.OperationFeatures["TryLine"] = tryStartLine;
+            
+            catchBlockInfo.OperationFeatures["TryStartLine"] = tryStartLine;
+            catchBlockInfo.OperationFeatures["TryEndLine"] = tryEndLine;
             catchBlockInfo.MetaInfo["TryLine"] = tryStartLine.ToString();
-            catchBlockInfo.OperationFeatures["TryLOC"] = tryEndLine - tryStartLine + 1;
+            catchBlockInfo.OperationFeatures["TryLOC"] = tryNoTriviaCount;
 
+            var catchNoTriviaCount = ASTUtilities.countLines(catchblock.Block) - 2;                        
             var catchFileLinePositionSpan = tree.GetLineSpan(catchblock.Block.Span);
             var catchStartLine = catchFileLinePositionSpan.StartLinePosition.Line + 1;
             var catchEndLine = catchFileLinePositionSpan.EndLinePosition.Line + 1;
 
-            catchBlockInfo.OperationFeatures["CatchLine"] = catchStartLine;
-            catchBlockInfo.OperationFeatures["CatchLOC"] = catchEndLine - catchStartLine + 1;
+            catchBlockInfo.OperationFeatures["CatchStartLine"] = catchStartLine;
+            catchBlockInfo.OperationFeatures["CatchEndLine"] = catchEndLine;
+            catchBlockInfo.OperationFeatures["CatchLOC"] = catchNoTriviaCount;
 
             catchBlockInfo.OperationFeatures["CatchStart"] = catchFileLinePositionSpan.StartLinePosition.Line;
             catchBlockInfo.OperationFeatures["CatchLength"] = catchFileLinePositionSpan.EndLinePosition.Line - catchFileLinePositionSpan.StartLinePosition.Line;
@@ -110,13 +114,19 @@ namespace NTratch
             catchBlockInfo.MetaInfo["ParentMethod"] = catchBlockInfo.ParentMethod;
 
             //Common Features
+            if (parentNode.IsKind(SyntaxKind.MethodDeclaration))
+                parentNode = (parentNode as MethodDeclarationSyntax).Body;
+            if (parentNode.IsKind(SyntaxKind.ConstructorDeclaration))
+                parentNode = (parentNode as ConstructorDeclarationSyntax).Body;            
+
+            var parentMethodNoTriviaCount = ASTUtilities.countLines(parentNode) - 2;
             var parentMethodFileLinePositionSpan = tree.GetLineSpan(parentNode.Span);
             var parentMethodStartLine = parentMethodFileLinePositionSpan.StartLinePosition.Line + 1;
             var parentMethodEndLine = parentMethodFileLinePositionSpan.EndLinePosition.Line + 1;
 
-            catchBlockInfo.OperationFeatures["MethodLine"] = parentMethodStartLine;
-            catchBlockInfo.OperationFeatures["MethodLOC"] = parentMethodEndLine - parentMethodStartLine + 1;
-
+            catchBlockInfo.OperationFeatures["MethodStartLine"] = parentMethodStartLine;
+            catchBlockInfo.OperationFeatures["MethodEndLine"] = parentMethodStartLine;
+            catchBlockInfo.OperationFeatures["MethodLOC"] = parentMethodNoTriviaCount;
 
             //Treatment for TryStatement
             bool hasTryStatement = catchblock.DescendantNodesAndSelf()

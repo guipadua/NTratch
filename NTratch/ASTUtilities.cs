@@ -297,4 +297,17 @@ public static class ASTUtilities
             return FindKind(exceptionType.BaseType, compilation);
         }
     }
+
+    //This will remove comments, and then count the lines that are not empty.
+    public static int countLines(SyntaxNode node)
+    {
+        var commentRemover = new CommentTriviaRemover();
+        var catchNoComments = commentRemover.Visit(node);
+        
+        var redudantWhitespaceRemover = new CommentAndRedudantTrailingWhitespaceRemover();
+        var catchNoCommentsNoRedudantWhitespace = redudantWhitespaceRemover.Visit(catchNoComments);
+
+        return catchNoCommentsNoRedudantWhitespace.GetText().Lines.Count(line => !line.Span.IsEmpty);
+
+    }   
 }
