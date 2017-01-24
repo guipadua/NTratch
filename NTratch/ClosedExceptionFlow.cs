@@ -127,7 +127,11 @@ namespace NTratch
                     //In case the possible thrown type is equal a super class of the caught type, it's a supersumption - code: 2
                     //In case it's none of the above - most likely tree of unrelated exceptions: code: 3
                     if (caughtType.Equals(thrownType) ||
-                        caughtType.BaseType.Equals(thrownType.BaseType) && caughtType.MetadataName.Equals(thrownType.MetadataName))
+                            (caughtType.BaseType != null && thrownType.BaseType != null && 
+                                caughtType.BaseType.Equals(thrownType.BaseType) && 
+                                caughtType.MetadataName.Equals(thrownType.MetadataName)
+                             )
+                        )
                     {
                         handlerTypeCode = 0;
                     }

@@ -371,7 +371,7 @@ namespace NTratch
             if (xmlTextSemantic == null || xmlTextSemantic == "")
             {   // // recover by using the overall semantic model
                 //xmlTextSemantic = m_compilation.GetSemanticModel(p_node.SyntaxTree).GetSymbolInfo(p_node).Symbol?.GetDocumentationCommentXml();
-                Logger.Log("WARN - empty xml: " + originalNode);
+                Logger.Log("TRACE - empty xml: " + originalNode);
             } else
                 docPresent = true;
             return NodeFindExceptionsInXML(xmlTextSemantic, ExceptionFlow.DOC_SEMANTIC, originalNode);            
@@ -394,32 +394,38 @@ namespace NTratch
 
             if (xml != null && xml != "")
             {
-                XmlDocument xmlDoc = new XmlDocument();
-                xmlDoc.LoadXml("<comment_root>" + RemoveInvalidXmlChars(xml) + "</comment_root>");
-
-                XmlNodeList nodeList;
-                XmlNode root = xmlDoc.DocumentElement;
-
-                nodeList = root.SelectNodes("descendant::exception");
-
-                foreach (XmlNode exception in nodeList)
+                try
                 {
-                    var exceptionTypeName = exception.Attributes.GetNamedItem("cref")?.InnerText.Replace("T:", "");
+                    XmlDocument xmlDoc = new XmlDocument();
+                    xmlDoc.LoadXml("<comment_root>" + RemoveInvalidXmlChars(xml) + "</comment_root>");
+                    XmlNodeList nodeList;
+                    XmlNode root = xmlDoc.DocumentElement;
 
-                    if(exceptionTypeName == null)
-                        exceptionTypeName = exception.Attributes.GetNamedItem("type")?.InnerText.Replace("T:", "");
+                    nodeList = root.SelectNodes("descendant::exception");
 
-                    if (exceptionTypeName == null)
-                        exceptionTypeName = "!XML_EXCEPTION_NOT_IDENTIFIED!";
-
-                    var exceptionType = m_compilation.GetTypeByMetadataName(exceptionTypeName);
-
-                    if (exceptionType != null)
+                    foreach (XmlNode exception in nodeList)
                     {
-                        ExceptionFlow flow = new ExceptionFlow(exceptionType, p_originKey, originalNode, m_myLevel);
-                        exceptions.Add(flow);
-                    }               
+                        var exceptionTypeName = exception.Attributes.GetNamedItem("cref")?.InnerText.Replace("T:", "");
+
+                        if (exceptionTypeName == null)
+                            exceptionTypeName = exception.Attributes.GetNamedItem("type")?.InnerText.Replace("T:", "");
+
+                        if (exceptionTypeName == null)
+                            exceptionTypeName = "!XML_EXCEPTION_NOT_IDENTIFIED!";
+
+                        var exceptionType = m_compilation.GetTypeByMetadataName(exceptionTypeName);
+
+                        if (exceptionType != null)
+                        {
+                            ExceptionFlow flow = new ExceptionFlow(exceptionType, p_originKey, originalNode, m_myLevel);
+                            exceptions.Add(flow);
+                        }
+                    }
                 }
+                catch (XmlException ex)
+                {
+                    Logger.Log("ERROR - XML with problem for : " + originalNode);
+                }                
             }
             return exceptions;
         }

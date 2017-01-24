@@ -361,7 +361,7 @@ namespace NTratch
 
                 possibleExceptionsList.Add(possibleExceptionsBlockInfo);
 
-                Logger.Log("Possible Exceptions block info registered.");
+                //Logger.Log("Possible Exceptions block info registered.");
             }
         }
 
