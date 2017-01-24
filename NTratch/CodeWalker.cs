@@ -122,7 +122,8 @@ namespace NTratch
         {
             Logger.Log("Loading from folder: " + folderPath);
             IEnumerable<string> FileNames = Directory.EnumerateFiles(folderPath, "*.cs",
-                SearchOption.AllDirectories);
+                SearchOption.AllDirectories).Where(file => !file.Contains("Test"));
+            
             int numFiles = FileNames.Count();
             Logger.Log("Loading " + numFiles + " *.cs files.");
             // parallelization
