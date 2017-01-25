@@ -2,20 +2,19 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.IO;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
+using System.Collections.Concurrent;
 
 namespace NTratch
 {
-	static class CodeAnalyzer
+    static class CodeAnalyzer
 	{
-		public static Dictionary<string, MyMethod> AllMyMethods = new Dictionary<string, MyMethod>();
-		public static Dictionary<string, InvokedMethod> InvokedMethods = new Dictionary<string, InvokedMethod>();        
+        public static ConcurrentDictionary<string, MyMethod> AllMyMethods = new ConcurrentDictionary<string, MyMethod>();
+		public static ConcurrentDictionary<string, InvokedMethod> InvokedMethods = new ConcurrentDictionary<string, InvokedMethod>();        
 
-		#region Tree Analysis
+        #region Tree Analysis
 		/// <summary>
 		/// Analyze the code by all trees and semantic models
 		/// </summary>
@@ -29,13 +28,14 @@ namespace NTratch
 			var treeNode = treeAndModelDic.Keys
 				.Select(tree => tree.GetRoot().DescendantNodes().Count());
 
-			// analyze every tree simultaneously
-			var allMethodDeclarations = treeAndModelDic.Keys.AsParallel()
-				.Select(tree => GetAllMethodDeclarations(tree, treeAndModelDic, compilation));
-			foreach (var methoddeclar in allMethodDeclarations)
-			{
-				MergeDic(ref AllMyMethods, methoddeclar);
-			}
+            // analyze every tree simultaneously
+            treeAndModelDic.Keys.AsParallel()
+                .ForAll(tree => GetAllMethodDeclarations(tree, treeAndModelDic, compilation));
+
+			//foreach (var methoddeclar in allMethodDeclarations)
+			//{
+			//	MergeDic(ref AllMyMethods, methoddeclar);
+			//}
 			Logger.Log("Cached all method declarations.");
 
 			var codeStatsList = treeAndModelDic.Keys.AsParallel()
@@ -48,9 +48,9 @@ namespace NTratch
             allStats.CodeStats["NumFiles"] = numFiles;
             allStats.CodeStats["NumDeclaredMethods"] = AllMyMethods.Count;
             allStats.CodeStats["NumInvokedMethods"] = InvokedMethods.Count;
-            allStats.CodeStats["NumInvokedMethodsBinded"] = (int)InvokedMethods.Values.Count(method => method.isBinded());
-            allStats.CodeStats["NumInvokedMethodsDeclared"] = (int)InvokedMethods.Values.Count(method => method.isDeclared());
-            allStats.CodeStats["NumInvokedMethodsExtDocPresent"] = (int)InvokedMethods.Values.Count(method => method.isExternalDocPresent());
+            allStats.CodeStats["NumInvokedMethodsBinded"] = InvokedMethods.Values.Count(method => method.isBinded());
+            allStats.CodeStats["NumInvokedMethodsDeclared"] = InvokedMethods.Values.Count(method => method.isDeclared());
+            allStats.CodeStats["NumInvokedMethodsExtDocPresent"] = InvokedMethods.Values.Count(method => method.isExternalDocPresent());
             
             allStats.PrintSatistics();
 
@@ -144,117 +144,112 @@ namespace NTratch
 
             return new Tuple<SyntaxTree, TreeStatistics>(tree, stats);
 		}
-        
-		public static Dictionary<string, MyMethod> GetAllMethodDeclarations(SyntaxTree tree,
-			Dictionary<SyntaxTree, SemanticModel> treeAndModelDic, Compilation compilation)
-		{
-			var allMethodDeclarations = new Dictionary<string, MyMethod>();
 
-			var root = tree.GetRoot();
-			var methodDeclarList = root.DescendantNodes().OfType<BaseMethodDeclarationSyntax>();
-			foreach (var method in methodDeclarList)
-			{
-				var methodName = ASTUtilities.GetNodeDeclaredSymbol(method, tree, treeAndModelDic, compilation).ToString();
-				
-				if (methodName != null)
-				{
-					if (!allMethodDeclarations.ContainsKey(methodName))
-					{
-						allMethodDeclarations.Add(methodName, new MyMethod(methodName, method));
-					}
-				}
-			}
-			return allMethodDeclarations;
-		}
-		#endregion Tree Analysis
+        public static void GetAllMethodDeclarations(this SyntaxTree tree,
+            Dictionary<SyntaxTree, SemanticModel> treeAndModelDic, Compilation compilation)
+        {
+            var root = tree.GetRoot();
+            var methodDeclarList = root.DescendantNodes().OfType<BaseMethodDeclarationSyntax>();
+            foreach (var method in methodDeclarList)
+            {
+                var methodName = ASTUtilities.GetNodeDeclaredSymbol(method, tree, treeAndModelDic, compilation).ToString();
 
-		
-	   
+                if (methodName != null)
+                {
+                    AllMyMethods.TryAdd(methodName, new MyMethod(methodName, method));
+                }
+            }
+        }
 
-		#region ETC
-		//public static Dictionary<string, int> GetVariablesAndComments(SyntaxNode codeSnippet)
-		//{
-		//	Dictionary<string, int> variableAndComments = new Dictionary<string, int>();
+        #endregion Tree Analysis
 
-		//	bool hasTryStatement = codeSnippet.DescendantNodes()
-		//		.OfType<TryStatementSyntax>().Any();
-		//	if (hasTryStatement == true)
-		//	{
-		//		codeSnippet = tryblockremover.Visit(codeSnippet);
-		//	}
 
-		//	var variableList = codeSnippet.DescendantNodes().OfType<IdentifierNameSyntax>()
-		//		.Where(variable => !SyntaxFacts.IsInTypeOnlyContext(variable));
-		//	foreach (var variable in variableList)
-		//	{
-		//		var variableName = IOFile.MethodNameExtraction(variable.ToString());
-		//		MergeDic<String>(ref variableAndComments,
-		//			new Dictionary<string, int>() { { variableName, 1 } });
-		//	}
 
-		//	var commentList = codeSnippet.DescendantTrivia()
-		//		.Where(childNode => childNode.IsKind(SyntaxKind.SingleLineCommentTrivia)
-		//			|| childNode.IsKind(SyntaxKind.MultiLineCommentTrivia));
-		//	foreach (var comment in commentList)
-		//	{
-		//		string updatedComment = IOFile.DeleteSpace(comment.ToString());
-		//		updatedComment = Regex.Replace(updatedComment, "<.*>", "");
-		//		updatedComment = Regex.Replace(updatedComment, "{.*}", "");
-		//		updatedComment = Regex.Replace(updatedComment, "\\(.*\\)", "");
-		//		MergeDic<String>(ref variableAndComments,
-		//			new Dictionary<string, int>() { { updatedComment, 1 } });
-		//	}
-		//	return variableAndComments;
-		//}
 
-		//public static string GetContainingMethodName(SyntaxNode codeSnippet, SemanticModel model)
-		//{
-		//	// Method name
-		//	SyntaxNode method = null;
-		//	string methodName = null;
-		//	try
-		//	{
-		//		method = codeSnippet.Ancestors().OfType<BaseMethodDeclarationSyntax>().First();
-		//	}
-		//	catch
-		//	{
-		//		// Skip method type: e.g., operator method
-		//	}
+        #region ETC
+        //public static Dictionary<string, int> GetVariablesAndComments(SyntaxNode codeSnippet)
+        //{
+        //	Dictionary<string, int> variableAndComments = new Dictionary<string, int>();
 
-		//	ISymbol methodSymbol;
-		//	if (method != null)
-		//	{
-		//		if (method is MethodDeclarationSyntax)
-		//		{
-		//			var methodDeclaration = method as MethodDeclarationSyntax;
-		//			try
-		//			{
-		//				methodSymbol = model.GetDeclaredSymbol(methodDeclaration);
-		//				methodName = methodSymbol.ToString();
-		//			}
-		//			catch
-		//			{
-		//				methodName = methodDeclaration.Identifier.ValueText;
-		//			}
-		//		}
-		//		else if (method is ConstructorDeclarationSyntax)
-		//		{
-		//			var methodDeclaration = method as ConstructorDeclarationSyntax;
-		//			try
-		//			{
-		//				methodSymbol = model.GetDeclaredSymbol(methodDeclaration);
-		//				methodName = methodSymbol.ToString();
-		//			}
-		//			catch
-		//			{
-		//				methodName = methodDeclaration.Identifier.ValueText;
-		//			}
-		//		}
-		//	}
-		//	return IOFile.MethodNameExtraction(methodName);
-		//}
+        //	bool hasTryStatement = codeSnippet.DescendantNodes()
+        //		.OfType<TryStatementSyntax>().Any();
+        //	if (hasTryStatement == true)
+        //	{
+        //		codeSnippet = tryblockremover.Visit(codeSnippet);
+        //	}
 
-		public static void MergeDic<T>(ref Dictionary<T, int> dic1, Dictionary<T, int> dic2)
+        //	var variableList = codeSnippet.DescendantNodes().OfType<IdentifierNameSyntax>()
+        //		.Where(variable => !SyntaxFacts.IsInTypeOnlyContext(variable));
+        //	foreach (var variable in variableList)
+        //	{
+        //		var variableName = IOFile.MethodNameExtraction(variable.ToString());
+        //		MergeDic<String>(ref variableAndComments,
+        //			new Dictionary<string, int>() { { variableName, 1 } });
+        //	}
+
+        //	var commentList = codeSnippet.DescendantTrivia()
+        //		.Where(childNode => childNode.IsKind(SyntaxKind.SingleLineCommentTrivia)
+        //			|| childNode.IsKind(SyntaxKind.MultiLineCommentTrivia));
+        //	foreach (var comment in commentList)
+        //	{
+        //		string updatedComment = IOFile.DeleteSpace(comment.ToString());
+        //		updatedComment = Regex.Replace(updatedComment, "<.*>", "");
+        //		updatedComment = Regex.Replace(updatedComment, "{.*}", "");
+        //		updatedComment = Regex.Replace(updatedComment, "\\(.*\\)", "");
+        //		MergeDic<String>(ref variableAndComments,
+        //			new Dictionary<string, int>() { { updatedComment, 1 } });
+        //	}
+        //	return variableAndComments;
+        //}
+
+        //public static string GetContainingMethodName(SyntaxNode codeSnippet, SemanticModel model)
+        //{
+        //	// Method name
+        //	SyntaxNode method = null;
+        //	string methodName = null;
+        //	try
+        //	{
+        //		method = codeSnippet.Ancestors().OfType<BaseMethodDeclarationSyntax>().First();
+        //	}
+        //	catch
+        //	{
+        //		// Skip method type: e.g., operator method
+        //	}
+
+        //	ISymbol methodSymbol;
+        //	if (method != null)
+        //	{
+        //		if (method is MethodDeclarationSyntax)
+        //		{
+        //			var methodDeclaration = method as MethodDeclarationSyntax;
+        //			try
+        //			{
+        //				methodSymbol = model.GetDeclaredSymbol(methodDeclaration);
+        //				methodName = methodSymbol.ToString();
+        //			}
+        //			catch
+        //			{
+        //				methodName = methodDeclaration.Identifier.ValueText;
+        //			}
+        //		}
+        //		else if (method is ConstructorDeclarationSyntax)
+        //		{
+        //			var methodDeclaration = method as ConstructorDeclarationSyntax;
+        //			try
+        //			{
+        //				methodSymbol = model.GetDeclaredSymbol(methodDeclaration);
+        //				methodName = methodSymbol.ToString();
+        //			}
+        //			catch
+        //			{
+        //				methodName = methodDeclaration.Identifier.ValueText;
+        //			}
+        //		}
+        //	}
+        //	return IOFile.MethodNameExtraction(methodName);
+        //}
+
+        public static void MergeDic<T>(ref Dictionary<T, int> dic1, Dictionary<T, int> dic2)
 		{
 			foreach (var key in dic2.Keys)
 			{

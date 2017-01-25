@@ -299,12 +299,14 @@ namespace NTratch
             {
                 if (binded)
                 {
-                    CodeAnalyzer.InvokedMethods.Add(nodeString, new InvokedMethod(nodeString, true));
-                    collectBindedInvokedMethodDataFromDeclaration(CodeAnalyzer.InvokedMethods[nodeString], nodeString);
-                    collectBindedInvokedMethodDataFromSemanticModel(CodeAnalyzer.InvokedMethods[nodeString], nodeBindingInfo, nodeString);
+                    if (CodeAnalyzer.InvokedMethods.TryAdd(nodeString, new InvokedMethod(nodeString, true)))
+                    {
+                        collectBindedInvokedMethodDataFromDeclaration(CodeAnalyzer.InvokedMethods[nodeString], nodeString);
+                        collectBindedInvokedMethodDataFromSemanticModel(CodeAnalyzer.InvokedMethods[nodeString], nodeBindingInfo, nodeString);
+                    }                    
                 }
                 else
-                    CodeAnalyzer.InvokedMethods.Add(nodeString, new InvokedMethod(nodeString, false));
+                    CodeAnalyzer.InvokedMethods.TryAdd(nodeString, new InvokedMethod(nodeString, false));
             }
             //TODO: if already known, what to do?        
             return CodeAnalyzer.InvokedMethods[nodeString].getExceptionFlowSetByType();
@@ -355,13 +357,9 @@ namespace NTratch
         public BaseMethodDeclarationSyntax GetNodeDeclaration(string p_nodeString)
         {
             //Get the declaration for this node (Syntax) - BEGIN
-            if (CodeAnalyzer.AllMyMethods.ContainsKey(p_nodeString))
-            {
-                return CodeAnalyzer.AllMyMethods[p_nodeString].Declaration;
-            }
-            else
-                return null;
-            
+            MyMethod outputMyMethod;
+            CodeAnalyzer.AllMyMethods.TryGetValue(p_nodeString, out outputMyMethod);
+            return outputMyMethod?.Declaration;            
         }
         
         private HashSet<ExceptionFlow> GetExceptionsFromXMLSemantic(ISymbol p_nodeSymbol, string originalNode, ref bool docPresent)

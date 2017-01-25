@@ -137,7 +137,7 @@ namespace NTratch
                 treeAndModelDic.Add(treeAndModel.Item1, treeAndModel.Item2);
             }
             var compilation = BuildCompilation(treeAndModelDic.Keys.ToList());
-
+            Logger.Log("Compilation built.");
             CodeAnalyzer.AnalyzeAllTrees(treeAndModelDic, compilation);
         }
 
