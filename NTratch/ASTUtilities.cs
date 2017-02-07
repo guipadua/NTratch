@@ -35,7 +35,7 @@ public static class ASTUtilities
     public static string FindParentType(SyntaxNode node, SemanticModel model)
     {
         SyntaxNode parentNode = node.Parent;
-
+        if (parentNode == null) { return "!NULL!"; }
         if (parentNode.IsKind(SyntaxKind.ClassDeclaration))
         {
             ClassDeclarationSyntax type = parentNode as ClassDeclarationSyntax;
@@ -286,9 +286,8 @@ public static class ASTUtilities
             return 1;
         }
         else if (exceptionType.Equals(compilation.GetTypeByMetadataName("System.Object")) ||
-           (exceptionType.SpecialType.ToString() != "None" &&
-                (exceptionType.SpecialType.Equals(compilation.GetTypeByMetadataName("System.Object").SpecialType))
-             ))
+                (exceptionType.SpecialType.Equals("System_Object"))
+             )
         {
             return -1;
         }
