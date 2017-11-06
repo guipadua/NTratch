@@ -32,6 +32,9 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
+  <PropertyGroup>
+    <StartupObject>NTratch.test.Polymorphism.TestBikes</StartupObject>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -45,6 +48,10 @@
   <ItemGroup>
     <Compile Include="Person.cs" />
     <Compile Include="PersonExtra.cs" />
+    <Compile Include="polymorphism\Bicycle.cs" />
+    <Compile Include="polymorphism\MountainBike.cs" />
+    <Compile Include="polymorphism\RoadBike.cs" />
+    <Compile Include="polymorphism\Program.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

@@ -12,7 +12,7 @@
     <VerifyUploadedFiles>false</VerifyUploadedFiles>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
-    <StartArguments>ByFolder ..\..\..\data_NTratch\PayPalSDK</StartArguments>
+    <StartArguments>ByFolder ..\..\..\Sample\polymorphism</StartArguments>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x86'">
     <StartArguments>
