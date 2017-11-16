@@ -249,8 +249,10 @@ public static class ASTUtilities
     {
         //if reach method, constructor and class stop because went too far
         if (node.IsKind(SyntaxKind.MethodDeclaration) || 
-            node.IsKind(SyntaxKind.ConstructorDeclaration) || 
-            node.IsKind(SyntaxKind.ClassDeclaration))
+            node.IsKind(SyntaxKind.ConstructorDeclaration) ||
+            node.IsKind(SyntaxKind.StructDeclaration) ||
+            node.IsKind(SyntaxKind.ClassDeclaration) ||
+            node.IsKind(SyntaxKind.NamespaceDeclaration))
             return null;
 
         //if reached catch clause means it can still pop out of the try statement. A catch clause is also a child node of a try statement =(
